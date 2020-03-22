@@ -1,4 +1,4 @@
 editor
 ======
 
-Emacs style editor written in Racket
+Vim style editor written in Racket
