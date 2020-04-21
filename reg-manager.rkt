@@ -20,6 +20,9 @@
     (define last-motions #f)
 
     (define last-search-motions #f)
+
+    (define local-marks (make-vector 26))
+    (define global-marks (make-vector 26))
     
     (define/public (get-reg name)
       (match name
@@ -59,4 +62,24 @@
       (get-reg 'last-search-motions))
     
     (define/public (set-last-search-motions! reg)
-      (set-reg 'last-search-motions reg))))
+      (set-reg 'last-search-motions reg))
+    
+    (define/public (get-mark char)
+      (cond
+        [(not (char-alphabetic? char)) (error 'not-alphabetic)]
+        [(char-lower-case? char)
+         (define index (- (char->integer char) (char->integer #\a)))
+         (vector-ref local-marks index)]
+        [(char-upper-case? char)
+         (define index (- (char->integer char) (char->integer #\A)))
+         (vector-ref global-marks index)]))
+    
+    (define/public (set-mark! char point)
+      (cond
+        [(not (char-alphabetic? char)) (error 'not-alphabetic)]
+        [(char-lower-case? char)
+         (define index (- (char->integer char) (char->integer #\a)))
+         (vector-set! local-marks index point)]
+        [(char-upper-case? char)
+         (define index (- (char->integer char) (char->integer #\A)))
+         (vector-set! global-marks index point)]))))

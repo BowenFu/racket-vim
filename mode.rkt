@@ -97,6 +97,8 @@
           [#\c         (send mode-switcher enter-mode! (new op-mode% [operator 'change-op] [prefix-count count]))
                        (set! count #f)
                        #f]
+          [#\`         (send mode-switcher enter-mode! (new get-mark-mode% [operator #f] [last-mode (or delegated-mode this)])) #f]
+          [#\m         (send mode-switcher enter-mode! (new mark-mode% [last-mode (or delegated-mode this)])) #f]
           [(or #\i #\a #\I #\A #\C #\s #\S #\o #\O) (define start-motion-lst (insert-key-to-start-motion-lst k))
                                                     (define scope-motion (insert-key-to-scope-motion k))
                                                     (define start-motions-lst (map make-Motion start-motion-lst))
@@ -573,6 +575,49 @@
         [(or 'release 'shift) (void)]
         [_ (set! range-end-p #f)
            (send sub-normal-mode on-char event b mode-switcher diff-manager reg-manager)]))))
+
+(define mark-mode%
+  (class block-cursor-mode%
+    (super-new)
+    (init-field last-mode)
+    (define/override (on-char event b mode-switcher diff-manager reg-manager)
+      (define p (Buffer-cur b))
+      (define k (send event get-key-code))
+      (match k
+        ['escape
+         (send mode-switcher enter-mode! last-mode)]
+        [(? char? k)
+         (send reg-manager set-mark! k p)
+         (send mode-switcher enter-mode! last-mode)]
+        [(or 'release 'shift)
+         (void)]
+        ))))
+
+(define get-mark-mode%
+  (class block-cursor-mode%
+    (init-field operator last-mode)
+    (super-new)
+    (define/override (on-char event b mode-switcher diff-manager reg-manager)
+      (define p (Buffer-cur b))
+      (define k (send event get-key-code))
+      (define lines (Buffer-lines b))
+      (cond
+        [(equal? operator #f)
+         (match k
+           [(? char? k)
+            (define point (send reg-manager get-mark k))
+            (set-Buffer-cur! b point)
+            (send mode-switcher enter-mode! last-mode)]
+           [_ (void)])]
+        #;[else
+         (define char
+           (match k
+             [(? char? k) k]
+             [_ #f]))
+         (when char
+           (define motions (make-Motion tf-motion k #:count n))
+           (operate! operator motions p b mode-switcher diff-manager reg-manager)
+           (set! operator #f))]))))
 
 (define (change start-motions-lst scope-motions p lines pre-inserted-lines mode-switcher)
   (define scope (get-point-scope scope-motions p lines))
