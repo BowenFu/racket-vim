@@ -3,7 +3,7 @@
 (require racket/gui "draw-line.rkt" "mode-utils.rkt" "core.rkt"
          "scope.rkt" "move.rkt" "wrapped-move-scope.rkt"
          "change.rkt" "diff.rkt" "params.rkt" "operators.rkt"
-         "diff-utils.rkt" "insert-utils.rkt" "search.rkt")
+         "diff-utils.rkt" "insert-utils.rkt" "search.rkt" "replace.rkt")
 
 (define (ctrl-func event)
   (case (system-type)
@@ -491,7 +491,7 @@
                                                     [direction direction]
                                                     [range-end-p (left-point (second next-range))]))]
               [(send mode-switcher enter-mode! (new normal-mode%))])]
-           [': (execute-command! command b mode-switcher)]
+           [': (execute-command! command b mode-switcher diff-manager)]
            [else (error 'missing)])
          ]
         [#\backspace
@@ -500,57 +500,27 @@
          (set! command (string-append command (string k)))]
         [_ (void)]))))
 
-(define (replace-command-all! command b)
+(define (replace-command-all! command b diff-manager)
   (define lines (Buffer-lines b))
   (define reg-result (regexp-match #rx"^%s/([^/]*)/([^/]*)/g$" command))
   (cond
     [(not reg-result) #f]
     [else
      (match-define (list _ src dst) reg-result)
-     (define new-lines (replace-from-point src dst (Point 0 0 0) lines 'all))
-     (set-Buffer-lines! b new-lines)]))
+     (define-values (new-lines diffs) (replace-from-point src dst (Point 0 0 0) lines 'all))
+     (set-Buffer-lines! b new-lines)
+     (send diff-manager push-diffs! diffs)]))
 
-(require "common-utils.rkt")
-
-(define (replace-from-point src dst p lines mode)
-  (define-values (row col) (Point-row-col p))
-  (define-values (before this after) (before-this-after lines row))
-  (define new-this (replace-line-from-col src dst this col mode))
-  (define new-after
-    (for/list ([l after])
-      (replace-line-from-col src dst l 0 mode)))
-  (append before (list new-this) new-after))
-
-(define (replace-command-first-of-each-line! command b)
+(define (replace-command-first-of-each-line! command b diff-manager)
+  (define lines (Buffer-lines b))
   (define reg-result (regexp-match #rx"^%s/([^/]*)/([^/]*)$" command))
   (cond
     [(not reg-result) #f]
     [else
      (match-define (list _ src dst) reg-result)
-     (define new-lines (replace-from-point src dst (Point 0 0 0) (Buffer-lines b) 'first))
-     (set-Buffer-lines! b new-lines)]))
-
-(define (replace-line-from-col src dst line col mode)
-  (define replace-func
-    (match mode
-      ['first regexp-replace]
-      ['all regexp-replace*]
-      [_ (error 'missing-case)]))
-  (string-append
-     (substring line 0 col)
-     (replace-func src (substring line col) dst)))
-
-(define (replace-once! src dst b)
-  (define lines (Buffer-lines b))
-  (define-values (row col) (Point-row-col (Buffer-cur b)))
-  (define old-line (list-ref lines row))
-  (define new-line (replace-line-from-col src dst old-line 0 'first))
-  (define new-lines (list-set
-                     lines
-                     row
-                     new-line
-                     ))
-  (set-Buffer-lines! b new-lines))
+     (define-values (new-lines diffs) (replace-from-point src dst (Point 0 0 0) lines 'first))
+     (set-Buffer-lines! b new-lines)
+     (send diff-manager push-diffs! diffs)]))
 
 (define (replace-with-asking! command b mode-switcher)
   (define reg-result (regexp-match #rx"^%s/([^/]*)/([^/]*)/gc$" command))
@@ -568,12 +538,12 @@
                                              [range-end-p (left-point (second next-range))]))]
        [else (send mode-switcher enter-mode! (new normal-mode%))])]))
 
-(define (execute-command! command b mode-switcher)
+(define (execute-command! command b mode-switcher diff-manager)
   ;(displayln (~e 'execute-command! command))
   (define to-normal
     (cond
-      [(replace-command-all! command b)]
-      [(replace-command-first-of-each-line! command b)]
+      [(replace-command-all! command b diff-manager)]
+      [(replace-command-first-of-each-line! command b diff-manager)]
       [(replace-with-asking! command b mode-switcher) #f]
       [else (error 'missing-case)]
       ))
@@ -630,7 +600,9 @@
          (send mode-switcher enter-mode! sub-normal-mode)]
         [(or #\y #\Y #\n #\N)
          (when (or (equal? k #\y) (equal? k #\Y))
-           (replace-once! src-pattern dst-pattern b))
+           (define-values (new-lines diffs) (replace-once src-pattern dst-pattern p lines))
+           (set-Buffer-lines! b new-lines)
+           (send diff-manager push-diffs! diffs))
          (define next-range (search p lines src-pattern 'forwards))
          (cond
            [(and next-range (not (Point<? (first next-range) p)))
@@ -638,7 +610,9 @@
             (set! range-end-p (left-point (second next-range)))]
            [else (set! range-end-p #f)
                  (send mode-switcher enter-mode! sub-normal-mode)])]
-        [(or #\a #\A) (set-Buffer-lines! b (replace-from-point src-pattern dst-pattern p lines 'all))]
+        [(or #\a #\A) (define-values (new-lines diffs) (replace-from-point src-pattern dst-pattern p lines 'all))
+                      (set-Buffer-lines! b new-lines)
+                      (send diff-manager push-diffs! diffs)]
         [(or 'release 'shift) (void)]
         [_ (set! range-end-p #f)
            (send sub-normal-mode on-char event b mode-switcher diff-manager reg-manager)]))))
