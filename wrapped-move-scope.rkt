@@ -2,17 +2,19 @@
 
 (require "core.rkt" "move.rkt" "scope.rkt")
 
+(require/typed "search.rkt" [search (-> Point Lines String Symbol (Listof Point))])
+
 (provide (all-defined-out))
 
 (provide after-lines-point Scoped-lines (struct-out Point) (struct-out Scope) lines-scope)
 
 (module+ test (require typed/rackunit))
 
-(struct Motion ([motion : Symbol] [char : (Option Char)] [count : Natural]) #:transparent)
+(struct Motion ([motion : Symbol] [char : (U Char String #f)] [count : Natural]) #:transparent)
 
 (struct Visual-Motion ([row : Natural] [col : Natural] [mode : Symbol]) #:transparent)
 
-(: make-Motion (->* (Symbol) ((Option Char) #:count Natural) Motion))
+(: make-Motion (->* (Symbol) ((U Char String #f) #:count Natural) Motion))
 (define (make-Motion motion [char #f] #:count [count 1])
   (Motion motion char count))
 
@@ -21,6 +23,17 @@
   (check-equal? (make-Motion 'f #\x) (Motion 'f #\x 1))
   (check-equal? (make-Motion 'e #:count 2) (Motion 'e #f 2))
   (check-equal? (make-Motion 'f #\x #:count 3) (Motion 'f #\x 3)))
+
+(: search-point (-> Point Lines String Symbol Point))
+(define (search-point p lines pattern direction)
+  (define range (search p lines pattern direction))
+  (unless range (error 'not-result))
+  (first range))
+
+(: search-scope (-> Point Lines String Symbol Scope))
+(define (search-scope p lines pattern direction)
+  (define new-p (search-point p lines pattern direction))
+  (Scope p new-p #t #f 'char))
 
 (: move-point (-> Motion Point Lines Point))
 (define (move-point motions p lines)
@@ -61,6 +74,10 @@
     ['down (down-point p lines count)]
     ['G (G-point lines)]
     ['nope p]
+    ['search-forwards (define pattern (cast char String))
+                      (search-point p lines pattern 'forwards)]
+    ['search-backwards (define pattern (cast char String))
+                       (search-point p lines pattern 'backwards)]
     [_ (error 'move-point-missing-case (~a motion))]))
 
 (module+ test
@@ -135,6 +152,10 @@
     ['down-line-mode (down-scope-line-mode p lines count)]
     ['G (G-scope p lines)]
     ['line (line-scope p line)]
+    ['search-forwards (define pattern (cast char String))
+                      (search-scope p lines pattern 'forwards)]
+    ['search-backwards (define pattern (cast char String))
+                       (search-scope p lines pattern 'backwards)]
     [_ (error 'get-point-scope-from-motion-missing-case (~a motion))]))
 
 (module+ test

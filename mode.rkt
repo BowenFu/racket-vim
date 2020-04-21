@@ -78,7 +78,7 @@
 (define normal-mode%
   (class block-cursor-mode%
     (super-new)
-    
+    (init-field [delegated-mode #f])
     (define count #f)
     (define/override (on-char event b mode-switcher diff-manager reg-manager)
       (define k (send event get-key-code))
@@ -90,11 +90,11 @@
       (define n (or count 1))
       (define motion
         (match k
-          [#\t         (send mode-switcher enter-mode! (new tf-mode% [tf-motion-sym 't] [op #f] [count- count])) #f]
-          [#\T         (send mode-switcher enter-mode! (new tf-mode% [tf-motion-sym 'T] [op #f] [count- count])) #f]
-          [#\f         (send mode-switcher enter-mode! (new tf-mode% [tf-motion-sym 'f] [op #f] [count- count])) #f]
-          [#\F         (send mode-switcher enter-mode! (new tf-mode% [tf-motion-sym 'F] [op #f] [count- count])) #f]
-          [#\c         (send mode-switcher enter-mode! (new op-mode% [op 'change-op] [pre-count count]))
+          [#\t         (send mode-switcher enter-mode! (new tf-mode% [tf-motion 't] [operator #f] [count count] [last-mode (or delegated-mode this)])) #f]
+          [#\T         (send mode-switcher enter-mode! (new tf-mode% [tf-motion 'T] [operator #f] [count count] [last-mode (or delegated-mode this)])) #f]
+          [#\f         (send mode-switcher enter-mode! (new tf-mode% [tf-motion 'f] [operator #f] [count count] [last-mode (or delegated-mode this)])) #f]
+          [#\F         (send mode-switcher enter-mode! (new tf-mode% [tf-motion 'F] [operator #f] [count count] [last-mode (or delegated-mode this)])) #f]
+          [#\c         (send mode-switcher enter-mode! (new op-mode% [operator 'change-op] [prefix-count count]))
                        (set! count #f)
                        #f]
           [(or #\i #\a #\I #\A #\C #\s #\S #\o #\O) (define start-motion-lst (insert-key-to-start-motion-lst k))
@@ -121,7 +121,7 @@
                          (update-Buffer-and-diffs! b diff-manager))
                         (set! count #f)
                         #f]
-          [(or #\y #\d #\> #\<)(send mode-switcher enter-mode! (new op-mode% [op (key-to-operator k)] [pre-count count]))
+          [(or #\y #\d #\> #\<)(send mode-switcher enter-mode! (new op-mode% [operator (key-to-operator k)] [prefix-count count]))
                                (set! count #f)
                                #f]
           [#\v #:when (send event get-control-down)
@@ -133,11 +133,9 @@
                          (repeat (send reg-manager get-last-cmd) (p) (lines) reg-manager))
                         (update-Buffer-and-diffs! b diff-manager))
                        #f]
-          [#\;         (move! (send reg-manager get-last-motions) (p) b) #f]
+          [#\;         (send reg-manager get-last-motions)]
           [#\,         (match-define (Motion mo char count) (send reg-manager get-last-motions))
-                       (define new-motion (make-Motion (reverse-tf mo) char #:count count))
-                       (move! new-motion (p) b)
-                       #f]
+                       (make-Motion (reverse-tf mo) char #:count count)]
           [#\u         (define-values (new-p new-lines) (send diff-manager undo-last (lines)))
                        (when new-p
                          (set-Buffer-lines! b new-lines)
@@ -152,23 +150,31 @@
           [#\r         (send mode-switcher enter-mode! (new replace-r-mode%)) #f]
           [#\R         (send mode-switcher enter-mode! (new replace-R-mode% [start-p (p)]))
                        'right]
-          [#\g         (send mode-switcher enter-mode! (new g-op-mode% [pre-count count]))
+          [#\g         (send mode-switcher enter-mode! (new g-op-mode% [prefix-count count]))
                        #f]
           [#\G         (define row (exact-round (sub1 (min (length (Buffer-lines b)) (or count +inf.0)))))
                        (set-Buffer-cur! b (Point row 0 0))
                        (send mode-switcher enter-mode! (new normal-mode%))
                        #f] ; should be merged to key-to-motion
-          [(or #\/ #\?)(send mode-switcher enter-mode! (new command-input-mode% [prefix (string->symbol (string k))]))
+          [(or #\/ #\?)(send mode-switcher enter-mode! (new command-input-mode% [prefix (string->symbol (string k))] [last-mode (or delegated-mode this)]))
                        #f]
-          [#\:         (send mode-switcher enter-mode! (new command-input-mode% [prefix ':]))
+          [#\:         (send mode-switcher enter-mode! (new command-input-mode% [prefix ':] [last-mode (or delegated-mode this)]))
                        #f]
           [(? (conjoin char? char-numeric? (lambda(k)(or count (not (equal? k #\0))))))
            (set! count (update-count k count))
            #f]
+          [#\n (send reg-manager get-last-search-motions)]
+          [#\N (match-define (Motion mo char count) (send reg-manager get-last-search-motions))
+               (define (reverse-search-motion mo)
+                 (match mo
+                   ['search-forwards 'search-backwards]
+                   ['search-backwards 'search-forwards]))
+               (make-Motion (reverse-search-motion mo) char #:count count)]
           [_           (key-to-motion k)]))
       (cond
         [motion
-         (move! (make-Motion motion #:count n) (p) b)
+         (define motions (if (symbol? motion) (make-Motion motion #:count n) motion))
+         (move! motions (p) b)
          (set! count #f)]
         [(Point<? (line-end) (p)) (set-Buffer-cur! b (line-end))]))))
 
@@ -180,7 +186,7 @@
     
     (define start-point start-p)
     (define count #f)
-    (define sub-normal-mode (new normal-mode%))
+    (define sub-normal-mode (new normal-mode% [delegated-mode this]))
     (define/override (get-scope b)
       (sort (list (Buffer-cur b) start-point) Point<?))
     (define (make-scope b)
@@ -202,8 +208,8 @@
                            (if (equal? (get-mode) 'line)
                                (new normal-mode%)
                                (new visual-line-mode% [start-p start-point])))]
-        [#\i         (send mode-switcher enter-mode! (new op-ia-mode% [i-or-a? 'i] [op visual-op] [count- count]))] ; should only work when starting a visual mode / or from visual line.
-        [#\a         (send mode-switcher enter-mode! (new op-ia-mode% [i-or-a? 'a] [op visual-op] [count- count]))] ; should only work when starting a visual mode / or from visual line.
+        [#\i         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'i] [operator visual-op] [count count]))] ; should only work when starting a visual mode / or from visual line.
+        [#\a         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'a] [operator visual-op] [count count]))] ; should only work when starting a visual mode / or from visual line.
         [#\o         (define old-start start-point)
                      (set! start-point (Buffer-cur b))
                      (set-Buffer-cur! b old-start)]
@@ -324,10 +330,7 @@
 (define op-mode%
   (class block-cursor-mode%
     (super-new)
-    (init op [pre-count #f])
-    
-    (define operator op)
-    (define prefix-count pre-count)
+    (init-field operator [prefix-count #f])
     (define infix-count #f)
     (define/override (on-char event b mode-switcher diff-manager reg-manager)
       (define k (send event get-key-code))
@@ -339,27 +342,26 @@
       (define (line-end) (line-end-scope p l))
       (define count (* (or prefix-count 1) (or infix-count 1)))
       (match k
-          [#\t         (send mode-switcher enter-mode! (new tf-mode% [tf-motion-sym 't] [op operator] [count- count]))]
-          [#\T         (send mode-switcher enter-mode! (new tf-mode% [tf-motion-sym 'T] [op operator] [count- count]))]
-          [#\f         (send mode-switcher enter-mode! (new tf-mode% [tf-motion-sym 'f] [op operator] [count- count]))]
-          [#\F         (send mode-switcher enter-mode! (new tf-mode% [tf-motion-sym 'F] [op operator] [count- count]))]
-          [#\i         (send mode-switcher enter-mode! (new op-ia-mode% [i-or-a? 'i] [op operator] [count- count]))]
-          [#\a         (send mode-switcher enter-mode! (new op-ia-mode% [i-or-a? 'a] [op operator] [count- count]))]
-          [(or 'shift 'release)    (void)]
-          ['escape     (send mode-switcher enter-mode! (new normal-mode%))]
-          [(? (conjoin char? char-numeric? (lambda(k)(or infix-count (not (equal? k #\0))))))
-           (set! infix-count (update-count k infix-count))]
-          [(? (lambda (key) (equal? operator (key-to-operator-without-prefix key #f))))
-           (define motions (make-Motion 'down-line-mode #:count (sub1 count))) ; down-line-mode include end
-           (operate! operator motions p b mode-switcher diff-manager reg-manager)]
-          [_           (or (key-to-scope k) (error 'missing-case (~a k)))]))))
+        [#\t         (send mode-switcher enter-mode! (new tf-mode% [tf-motion 't] [operator operator] [count count] [last-mode this]))]
+        [#\T         (send mode-switcher enter-mode! (new tf-mode% [tf-motion 'T] [operator operator] [count count] [last-mode this]))]
+        [#\f         (send mode-switcher enter-mode! (new tf-mode% [tf-motion 'f] [operator operator] [count count] [last-mode this]))]
+        [#\F         (send mode-switcher enter-mode! (new tf-mode% [tf-motion 'F] [operator operator] [count count] [last-mode this]))]
+        [#\i         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'i] [operator operator] [count count]))]
+        [#\a         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'a] [operator operator] [count count]))]
+        [(or #\/ #\?)(send mode-switcher enter-mode! (new command-input-mode% [prefix (string->symbol (string k))] [operator operator] [last-mode (new normal-mode%)]))]
+        [(or 'shift 'release)    (void)]
+        ['escape     (send mode-switcher enter-mode! (new normal-mode%))]
+        [(? (conjoin char? char-numeric? (lambda(k)(or infix-count (not (equal? k #\0))))))
+         (set! infix-count (update-count k infix-count))]
+        [(? (lambda (key) (equal? operator (key-to-operator-without-prefix key #f))))
+         (define motions (make-Motion 'down-line-mode #:count (sub1 count))) ; down-line-mode include end
+         (operate! operator motions p b mode-switcher diff-manager reg-manager)]
+        [_           (or (key-to-scope k) (error 'missing-case (~a k)))]))))
 
 (define g-op-mode%
   (class block-cursor-mode%
     (super-new)
-    (init [pre-count #f])
-    
-    (define prefix-count pre-count)
+    (init-field [prefix-count #f])
     (define/override (on-char event b mode-switcher diff-manager reg-manager)
       (define k (send event get-key-code))
       (define op-key
@@ -375,7 +377,7 @@
           ['shift #f]
           [_          (error 'missing-case (~a k))]))
       (when op-key (define op (key-to-g-op op-key))
-        (send mode-switcher enter-mode! (new op-mode% [op op] [pre-count prefix-count]))
+        (send mode-switcher enter-mode! (new op-mode% [operator op] [prefix-count prefix-count]))
         ))))
 
 (define visual-g-op-mode%
@@ -411,18 +413,13 @@
 
 (define tf-mode%
   (class block-cursor-mode%
-    (init tf-motion-sym op [count- 1])
-    
-    (define tf-motion tf-motion-sym)
-    (define operator op)
-    (define count count-)
+    (init-field tf-motion operator last-mode [count 1])
     (super-new)
     (define/override (on-char event b mode-switcher diff-manager reg-manager)
       (define p (Buffer-cur b))
       (define k (send event get-key-code))
       (define lines (Buffer-lines b))
       (define n (or count 1))
-      ;(displayln (list 'tf-mode-count-n n))
       (cond
         [(equal? operator #f)
          (match k
@@ -430,7 +427,7 @@
             (define motions (make-Motion tf-motion k #:count n))
             (send reg-manager set-last-motions motions)
             (set-Buffer-cur! b (move-point motions p lines))
-            (send mode-switcher enter-mode! (new normal-mode%))]
+            (send mode-switcher enter-mode! last-mode)]
            [_ (void)])]
         [else
          (define char
@@ -444,11 +441,7 @@
 
 (define op-ia-mode%
   (class block-cursor-mode%
-    (init i-or-a? op count-)
-    
-    (define i/a? i-or-a?)
-    (define operator op)
-    (define count count-)
+    (init-field i/a? operator count)
     (super-new)
     (define/override (on-char event b mode-switcher diff-manager reg-manager)
       (define m (Buffer-cur b))
@@ -463,7 +456,7 @@
 
 (define command-input-mode%
   (class block-cursor-mode%
-    (init-field prefix)
+    (init-field prefix last-mode [operator #f])
     (define command "")
     (super-new)
     (define/override (get-status-line)
@@ -477,23 +470,20 @@
         [#\return
          (match prefix
            [(or '/ '?)
-            (define direction
+            (define motion
               (match prefix
-                ['/ 'forwards]
-                ['? 'backwards]
+                ['/ 'search-forwards]
+                ['? 'search-backwards]
                 [_ 'missing-case]))
-            (define next-range (search (Buffer-cur b) (Buffer-lines b) command direction))
+            (define motions (make-Motion motion command))
+            (send reg-manager set-last-search-motions! motions)
             (cond
-              [next-range
-               (set-Buffer-cur! b (first next-range))
-               (send mode-switcher enter-mode! (new search-mode%
-                                                    [pattern command]
-                                                    [direction direction]
-                                                    [range-end-p (left-point (second next-range))]))]
-              [(send mode-switcher enter-mode! (new normal-mode%))])]
+              [operator (operate! operator motions (Buffer-cur b) b mode-switcher diff-manager reg-manager)]
+              [else
+               (set-Buffer-cur! b (move-point motions (Buffer-cur b) (Buffer-lines b)))
+               (send mode-switcher enter-mode! last-mode)])]
            [': (execute-command! command b mode-switcher diff-manager)]
-           [else (error 'missing)])
-         ]
+           [else (error 'missing)])]
         [#\backspace
          (set! command (substring command 0 (sub1 (string-length command))))]
         [(? char? k)
@@ -548,39 +538,6 @@
       [else (error 'missing-case)]
       ))
   (when to-normal (send mode-switcher enter-mode! (new normal-mode%))))
-
-(define search-mode%
-  (class visual-mode-base%
-    (super-new)
-    (init-field pattern range-end-p direction)
-    (define sub-normal-mode (new normal-mode%))
-    (define/override (get-status-line)
-      (string-append "searching " pattern))
-    (define/override (get-scope b)
-      (sort (list (Buffer-cur b) (or range-end-p (Buffer-cur b))) Point<?))
-    (define/override (on-char event b mode-switcher diff-manager reg-manager)
-      (define p (Buffer-cur b))
-      (define k (send event get-key-code))
-      (match k
-        ['escape
-         (send mode-switcher enter-mode! (new normal-mode%))]
-        [(or #\n #\N)
-         (define (reverse-direction direction)
-           (match direction
-             ['forwards 'backwards]
-             ['backwards 'forwards]))
-         (define local-direction
-           (match k
-             [#\n direction]
-             [#\N (reverse-direction direction)]
-             [_ (error 'missing-case)]))
-         (define next-range (search p (Buffer-lines b) pattern local-direction))
-         (and next-range
-              (set-Buffer-cur! b (first next-range))
-              (set! range-end-p (left-point (second next-range))))]
-        [(or 'release 'shift) (void)]
-        [_ (set! range-end-p #f)
-           (send sub-normal-mode on-char event b mode-switcher diff-manager reg-manager)]))))
 
 (define replace-command-mode%
   (class visual-mode-base%

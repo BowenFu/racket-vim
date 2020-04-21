@@ -18,12 +18,15 @@
     (define last-command #f)
 
     (define last-motions #f)
+
+    (define last-search-motions #f)
     
     (define/public (get-reg name)
       (match name
         ['yank yank-reg]
         ['last-cmd last-command]
         ['last-motions last-motions]
+        ['last-search-motions last-search-motions]
         [_ (error 'missing-case-in-get-reg)]))
 
     (define/public (set-reg name reg)
@@ -31,6 +34,7 @@
         ['yank (set! yank-reg reg)]
         ['last-cmd (set! last-command reg)]
         ['last-motions (set! last-motions reg)]
+        ['last-search-motions (set! last-search-motions reg)]
         [_ (error 'missing-case-in-set-reg)]))
 
     (define/public (get-yank-reg)
@@ -49,4 +53,10 @@
       (get-reg 'last-motions))
     
     (define/public (set-last-motions reg)
-      (set-reg 'last-motions reg))))
+      (set-reg 'last-motions reg))
+    
+    (define/public (get-last-search-motions)
+      (get-reg 'last-search-motions))
+    
+    (define/public (set-last-search-motions! reg)
+      (set-reg 'last-search-motions reg))))

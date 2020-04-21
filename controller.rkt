@@ -31,3 +31,4 @@
     (define/public (get-status-line)
       (define current-mode (send mode-switcher get-current-mode))
       (send current-mode get-status-line))))
+
