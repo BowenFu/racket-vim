@@ -623,3 +623,13 @@
                   ", the anger"
                   "xf Achilles son"))
   (check-equal? (Buffer-cur b) (Point 0 0 0)))
+
+(let ([ b (new-Buffer sample-lines)])
+  (execute-key-events b (list 
+                         #\d
+                         #\l))
+  (check-equal? (Buffer-lines b)
+                '("ing, O goddess, the anger"
+                  "of Achilles son"
+                  "of Peleus, that brought"))
+  (check-equal? (Buffer-cur b) (Point 0 0 0)))

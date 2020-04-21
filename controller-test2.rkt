@@ -53,3 +53,36 @@
                               'escape))
   (check-equal? (Buffer-lines b)
                 '("12Peleus, that brought")))
+
+(let ([ b (new-Buffer sample-lines)])
+  (execute-key-events b (list #\f
+                              #\O
+                              #\m
+                              #\m
+                              #\j
+                              #\g
+                              #\U
+                              #\`
+                              #\m
+                              ))
+  (check-equal? (Buffer-lines b)
+                '("Sing, O GODDESS, THE ANGER"
+                  "OF ACHIlles son"
+                  "of Peleus, that brought")))
+
+(let ([ b (new-Buffer sample-lines)])
+  (execute-key-events b (list #\f
+                              #\O
+                              #\i
+                              #\(
+                              'escape
+                              #\j
+                              #\b
+                              #\i
+                              #\)
+                              'escape
+                              #\d
+                              #\%))
+  (check-equal? (Buffer-lines b)
+                '("Sing, Achilles son"
+                  "of Peleus, that brought")))

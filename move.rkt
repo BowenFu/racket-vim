@@ -758,7 +758,6 @@
 (define (G-point lines)
   (line-start-point (max 0 (sub1 (length lines)))))
 
-
 (module+ test
   (check-equal? (G-point (list)) (Point 0 0 0))
   (check-equal? (G-point (list "abc")) (Point 0 0 0))

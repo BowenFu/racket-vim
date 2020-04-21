@@ -90,14 +90,15 @@
       (define n (or count 1))
       (define motion
         (match k
-          [#\t         (send mode-switcher enter-mode! (new tf-mode% [tf-motion 't] [operator #f] [count count] [last-mode (or delegated-mode this)])) #f]
-          [#\T         (send mode-switcher enter-mode! (new tf-mode% [tf-motion 'T] [operator #f] [count count] [last-mode (or delegated-mode this)])) #f]
-          [#\f         (send mode-switcher enter-mode! (new tf-mode% [tf-motion 'f] [operator #f] [count count] [last-mode (or delegated-mode this)])) #f]
-          [#\F         (send mode-switcher enter-mode! (new tf-mode% [tf-motion 'F] [operator #f] [count count] [last-mode (or delegated-mode this)])) #f]
+          [#\t         (send mode-switcher enter-mode! (new tfm-mode% [tfm-motion 't] [operator #f] [count count] [last-mode (or delegated-mode this)])) #f]
+          [#\T         (send mode-switcher enter-mode! (new tfm-mode% [tfm-motion 'T] [operator #f] [count count] [last-mode (or delegated-mode this)])) #f]
+          [#\f         (send mode-switcher enter-mode! (new tfm-mode% [tfm-motion 'f] [operator #f] [count count] [last-mode (or delegated-mode this)])) #f]
+          [#\F         (send mode-switcher enter-mode! (new tfm-mode% [tfm-motion 'F] [operator #f] [count count] [last-mode (or delegated-mode this)])) #f]
           [#\c         (send mode-switcher enter-mode! (new op-mode% [operator 'change-op] [prefix-count count]))
                        (set! count #f)
                        #f]
-          [#\`         (send mode-switcher enter-mode! (new get-mark-mode% [operator #f] [last-mode (or delegated-mode this)])) #f]
+          [#\`         (send mode-switcher enter-mode! (new tfm-mode% [tfm-motion '\`] [operator #f] [count count] [last-mode (or delegated-mode this)]))
+                       #f]
           [#\m         (send mode-switcher enter-mode! (new mark-mode% [last-mode (or delegated-mode this)])) #f]
           [(or #\i #\a #\I #\A #\C #\s #\S #\o #\O) (define start-motion-lst (insert-key-to-start-motion-lst k))
                                                     (define scope-motion (insert-key-to-scope-motion k))
@@ -344,13 +345,14 @@
       (define (line-end) (line-end-scope p l))
       (define count (* (or prefix-count 1) (or infix-count 1)))
       (match k
-        [#\t         (send mode-switcher enter-mode! (new tf-mode% [tf-motion 't] [operator operator] [count count] [last-mode this]))]
-        [#\T         (send mode-switcher enter-mode! (new tf-mode% [tf-motion 'T] [operator operator] [count count] [last-mode this]))]
-        [#\f         (send mode-switcher enter-mode! (new tf-mode% [tf-motion 'f] [operator operator] [count count] [last-mode this]))]
-        [#\F         (send mode-switcher enter-mode! (new tf-mode% [tf-motion 'F] [operator operator] [count count] [last-mode this]))]
+        [#\t         (send mode-switcher enter-mode! (new tfm-mode% [tfm-motion 't] [operator operator] [count count] [last-mode (new normal-mode%)]))]
+        [#\T         (send mode-switcher enter-mode! (new tfm-mode% [tfm-motion 'T] [operator operator] [count count] [last-mode (new normal-mode%)]))]
+        [#\f         (send mode-switcher enter-mode! (new tfm-mode% [tfm-motion 'f] [operator operator] [count count] [last-mode (new normal-mode%)]))]
+        [#\F         (send mode-switcher enter-mode! (new tfm-mode% [tfm-motion 'F] [operator operator] [count count] [last-mode (new normal-mode%)]))]
         [#\i         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'i] [operator operator] [count count]))]
         [#\a         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'a] [operator operator] [count count]))]
         [(or #\/ #\?)(send mode-switcher enter-mode! (new command-input-mode% [prefix (string->symbol (string k))] [operator operator] [last-mode (new normal-mode%)]))]
+        [#\`         (send mode-switcher enter-mode! (new tfm-mode% [tfm-motion '\`] [operator operator] [count count] [last-mode (new normal-mode%)]))]
         [(or 'shift 'release)    (void)]
         ['escape     (send mode-switcher enter-mode! (new normal-mode%))]
         [(? (conjoin char? char-numeric? (lambda(k)(or infix-count (not (equal? k #\0))))))
@@ -358,7 +360,11 @@
         [(? (lambda (key) (equal? operator (key-to-operator-without-prefix key #f))))
          (define motions (make-Motion 'down-line-mode #:count (sub1 count))) ; down-line-mode include end
          (operate! operator motions p b mode-switcher diff-manager reg-manager)]
-        [_           (or (key-to-scope k) (error 'missing-case (~a k)))]))))
+        [_           (cond
+                       [(key-to-scope k)
+                        (define motions (make-Motion (key-to-scope k) #:count count))
+                        (operate! operator motions p b mode-switcher diff-manager reg-manager)]
+                       [else (error 'missing-case (~a k))])]))))
 
 (define g-op-mode%
   (class block-cursor-mode%
@@ -413,9 +419,9 @@
                 (send mode-switcher enter-mode! (new normal-mode%))]
         ))))
 
-(define tf-mode%
+(define tfm-mode%
   (class block-cursor-mode%
-    (init-field tf-motion operator last-mode [count 1])
+    (init-field tfm-motion operator last-mode [count 1])
     (super-new)
     (define/override (on-char event b mode-switcher diff-manager reg-manager)
       (define p (Buffer-cur b))
@@ -426,7 +432,10 @@
         [(equal? operator #f)
          (match k
            [(? char? k)
-            (define motions (make-Motion tf-motion k #:count n))
+            (define motions
+              (cond
+                [(equal? tfm-motion '\`) (Mark-Motion (send reg-manager get-mark k))]
+                [else (make-Motion tfm-motion k #:count n)]))
             (send reg-manager set-last-motions motions)
             (set-Buffer-cur! b (move-point motions p lines))
             (send mode-switcher enter-mode! last-mode)]
@@ -437,7 +446,10 @@
              [(? char? k) k]
              [_ #f]))
          (when char
-           (define motions (make-Motion tf-motion k #:count n))
+           (define motions
+             (cond
+               [(equal? tfm-motion '\`) (Mark-Motion (send reg-manager get-mark k))]
+               [else (make-Motion tfm-motion k #:count n)]))
            (operate! operator motions p b mode-switcher diff-manager reg-manager)
            (set! operator #f))]))))
 
@@ -592,32 +604,6 @@
         [(or 'release 'shift)
          (void)]
         ))))
-
-(define get-mark-mode%
-  (class block-cursor-mode%
-    (init-field operator last-mode)
-    (super-new)
-    (define/override (on-char event b mode-switcher diff-manager reg-manager)
-      (define p (Buffer-cur b))
-      (define k (send event get-key-code))
-      (define lines (Buffer-lines b))
-      (cond
-        [(equal? operator #f)
-         (match k
-           [(? char? k)
-            (define point (send reg-manager get-mark k))
-            (set-Buffer-cur! b point)
-            (send mode-switcher enter-mode! last-mode)]
-           [_ (void)])]
-        #;[else
-         (define char
-           (match k
-             [(? char? k) k]
-             [_ #f]))
-         (when char
-           (define motions (make-Motion tf-motion k #:count n))
-           (operate! operator motions p b mode-switcher diff-manager reg-manager)
-           (set! operator #f))]))))
 
 (define (change start-motions-lst scope-motions p lines pre-inserted-lines mode-switcher)
   (define scope (get-point-scope scope-motions p lines))
