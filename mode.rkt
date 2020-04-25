@@ -51,8 +51,8 @@
            #f]
           ['left       (insert-move! 'left)] ; out of insert mode and reenter
           ['right      (insert-move! 'right*)]
-          ['up         (insert-move! 'up)]
-          ['down       (insert-move! 'down)]
+          ['up         (insert-move! 'up*)]
+          ['down       (insert-move! 'down*)]
           [#\v #:when (ctrl-func event)
                (define inserted-str (send the-clipboard get-clipboard-string (send event get-time-stamp)))
                (define inserted-lines (string-split inserted-str "\n"))
