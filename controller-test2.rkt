@@ -117,3 +117,14 @@
   (check-equal? (Buffer-lines b)
                 '("Sing, O goddess, the anger"
                   "that brought")))
+
+(let ([ b (new-Buffer sample-lines)])
+  (execute-key-events b (list #\1
+                              #\|
+                              #\d
+                              #\2
+                              #\|))
+  (check-equal? (Buffer-lines b)
+                '("ing, O goddess, the anger"
+                  "of Achilles son"
+                  "of Peleus, that brought")))

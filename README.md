@@ -79,3 +79,17 @@ Yank and put
 * `yy` or `Y`: Yank the current line
 * `p`: Put the most recently yanked line after the current line
 * `P`: Put the most recently yanked line before the current line
+
+History
+
+* `u`: Undo
+* `C-r` Redo
+
+Visual mode
+* `v`: Start visual mode
+* `V`: Start visual line mode
+* `c-v`: Start visual block mode
+
+Replace mode
+* `r`: replace a single char.
+* `R`: entern replace mode.

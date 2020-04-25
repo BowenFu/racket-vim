@@ -63,6 +63,13 @@
   (define end-col (line-end-col l))
   (Point row end-col +inf.0))
 
+(: \|-point (-> Natural String Natural Point))
+(define (\|-point row l count)
+  (define end-col (line-end-col l))
+  (define real-col
+    (cast (min end-col (sub1 count)) Natural))
+  (Point row real-col real-col))
+
 (module+ test
   (check-equal? (line-end-point 1 "abc") (Point 1 2 +inf.0))
   (check-equal? (line-end-point 0 "abc") (Point 0 2 +inf.0))

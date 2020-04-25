@@ -88,6 +88,7 @@
        ['search-backwards (define pattern (cast char String))
                           (search-point p lines pattern 'backwards)]
        ['% (%-point p lines)]
+       ['\| (\|-point row line count)]
        [_ (error 'move-point-missing-case (~a motion))])]))
 
 (module+ test
@@ -230,6 +231,11 @@
      (define points
        (sort (list p pp) Point<?))
      (Scope (first points) (last points) #t #t 'char)]
+    ['\|
+     (define pp (\|-point row line count))
+     (define points
+       (sort (list p pp) Point<?))
+     (Scope (first points) (last points) #t #f 'char)]
     [_ (error 'get-point-scope-from-motion-missing-case (~a motion))]))
 
 (module+ test
@@ -258,6 +264,7 @@
     [#\W         'W]
     [#\G         'G]
     [#\%         '%]
+    [#\|         '\|]
     [_ #f]))
 
 (define (key-to-motion k)
@@ -281,6 +288,7 @@
     [#\W         'W]
     [#\G         'G]
     [#\%         '%]
+    [#\|         '\|]
     [_ #f]))
 
 (define (key-to-ia-motion k i/a?)

@@ -155,9 +155,9 @@
                        (set-Buffer-cur! b (Point row 0 0))
                        (send mode-switcher enter-mode! (new normal-mode%))
                        #f] ; should be merged to key-to-motion
-          [(or #\/ #\?)(send mode-switcher enter-mode! (new command-input-mode% [prefix (string->symbol (string k))] [last-mode (or delegated-mode this)]))
+          [(or #\/ #\?)(send mode-switcher enter-mode! (new command-line-mode% [prefix (string->symbol (string k))] [last-mode (or delegated-mode this)]))
                        #f]
-          [#\:         (send mode-switcher enter-mode! (new command-input-mode% [prefix ':] [last-mode (or delegated-mode this)]))
+          [#\:         (send mode-switcher enter-mode! (new command-line-mode% [prefix ':] [last-mode (or delegated-mode this)]))
                        #f]
           [(? (conjoin char? char-numeric? (lambda(k)(or count (not (equal? k #\0))))))
            (set! count (update-count k count))
@@ -182,7 +182,6 @@
     (super-new)
     (abstract get-mode)
     [init start-p]
-    
     (define start-point start-p)
     (define count #f)
     (define sub-normal-mode (new normal-mode% [delegated-mode this]))
@@ -345,7 +344,7 @@
          (send mode-switcher enter-mode! (new tfm-mode% [tfm-motion (string->symbol (string k))] [operator operator] [count count] [last-mode (new normal-mode%)]))]
         [#\i         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'i] [operator operator] [count count]))]
         [#\a         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'a] [operator operator] [count count]))]
-        [(or #\/ #\?)(send mode-switcher enter-mode! (new command-input-mode% [prefix (string->symbol (string k))] [operator operator] [last-mode (new normal-mode%)]))]
+        [(or #\/ #\?)(send mode-switcher enter-mode! (new command-line-mode% [prefix (string->symbol (string k))] [operator operator] [last-mode (new normal-mode%)]))]
         [(or 'shift 'release)    (void)]
         ['escape     (send mode-switcher enter-mode! (new normal-mode%))]
         [(? (conjoin char? char-numeric? (lambda(k)(or infix-count (not (equal? k #\0))))))
@@ -469,7 +468,7 @@
         [(equal? k 'escape)
          (send mode-switcher enter-mode! (new normal-mode%))]))))
 
-(define command-input-mode%
+(define command-line-mode%
   (class block-cursor-mode%
     (init-field prefix last-mode [operator #f])
     (define command "")
