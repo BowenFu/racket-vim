@@ -4,13 +4,15 @@
 
 (provide search)
 
-(define (search p lines pattern direction)
+(define (search p lines pattern direction count)
   (define search-func
     (match direction
       ['forwards search-forwards]
       ['backwards search-backwards]
       [_ (error 'missing-case)]))
-  (search-func p lines pattern))
+  (for/fold ([p-pp (list p p)])
+            [(i (in-range count))]
+    (search-func (first p-pp) lines pattern)))
 
 (define (search-string-forwards row str pattern [col-inc 0])
   (define pair (regexp-match-positions pattern str))
@@ -31,9 +33,6 @@
      (define col0 (+ (car p) col-inc))
      (define col1 (+ (cdr p) col-inc))
      (list (Point row col0 col0) (Point row col1 col1))]))
-
-;(require racket/trace)
-;(trace search-string-backwards)
 
 (define (search-forwards p lines pattern)
   (match-define (Point row col _) p)

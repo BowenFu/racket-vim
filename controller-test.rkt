@@ -382,6 +382,7 @@
                   ""
                   "of Achilles son" "of Peleus, that brought"))
   (check-equal? (Buffer-cur b) (Point 1 0 0)))
+
 (let ([ b (new-Buffer sample-lines)])
   (execute-key-events b (list       #\f
                                     #\,
@@ -393,6 +394,7 @@
                   "of Achilles son"
                   "of Peleus, that brought"))
   (check-equal? (Buffer-cur b) (Point 0 5 5)))
+
 (let ([ b (new-Buffer sample-lines)])
   (execute-key-events b (list       #\/
                                     #\,

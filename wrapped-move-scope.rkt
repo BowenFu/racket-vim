@@ -6,7 +6,7 @@
 
 (require "core.rkt" "move.rkt" "scope.rkt")
 
-(require/typed "search.rkt" [search (-> Point Lines String Symbol (Listof Point))])
+(require/typed "search.rkt" [search (-> Point Lines String Symbol Natural (Listof Point))])
 
 (require/typed "match-paren.rkt" [%-point (-> Point Lines Point)])
 
@@ -28,15 +28,15 @@
   (check-equal? (make-Motion 'e #:count 2) (Motion 'e #f 2))
   (check-equal? (make-Motion 'f #\x #:count 3) (Motion 'f #\x 3)))
 
-(: search-point (-> Point Lines String Symbol Point))
-(define (search-point p lines pattern direction)
-  (define range (search p lines pattern direction))
+(: search-point (-> Point Lines String Symbol Natural Point))
+(define (search-point p lines pattern direction count)
+  (define range (search p lines pattern direction count))
   (unless range (error 'not-result))
   (first range))
 
-(: search-scope (-> Point Lines String Symbol Scope))
-(define (search-scope p lines pattern direction)
-  (define new-p (search-point p lines pattern direction))
+(: search-scope (-> Point Lines String Symbol Natural Scope))
+(define (search-scope p lines pattern direction count)
+  (define new-p (search-point p lines pattern direction count))
   (Scope p new-p #t #f 'char))
 
 (: move-point (-> (U Motion Mark-Motion) Point Lines Point))
@@ -84,9 +84,9 @@
        ['G (G-point lines)]
        ['nope p]
        ['search-forwards (define pattern (cast char String))
-                         (search-point p lines pattern 'forwards)]
+                         (search-point p lines pattern 'forwards count)]
        ['search-backwards (define pattern (cast char String))
-                          (search-point p lines pattern 'backwards)]
+                          (search-point p lines pattern 'backwards count)]
        ['% (%-point p lines)]
        ['\| (\|-point row line count)]
        [_ (error 'move-point-missing-case (~a motion))])]))
@@ -223,9 +223,9 @@
     ['G (G-scope p lines)]
     ['line (line-scope p line)]
     ['search-forwards (define pattern (cast char String))
-                      (search-scope p lines pattern 'forwards)]
+                      (search-scope p lines pattern 'forwards count)]
     ['search-backwards (define pattern (cast char String))
-                       (search-scope p lines pattern 'backwards)]
+                       (search-scope p lines pattern 'backwards count)]
     ['%
      (define pp (%-point p lines))
      (define points
