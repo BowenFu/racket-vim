@@ -34,7 +34,7 @@ Marks
 
 * `m`: Create a mark
 * `` ` ``: Move to a given mark
-* [todo] `'`: Move to the line containing a given mark
+* `'`: Move to the line containing a given mark
 
 Insertion
 

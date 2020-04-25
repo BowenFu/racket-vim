@@ -100,3 +100,20 @@
   (check-equal? (Buffer-lines b)
                 '("Sing, O goddess, the anger"
                   "of Peleus, that brought")))
+
+(let ([ b (new-Buffer sample-lines)])
+  (execute-key-events b (list #\j
+                              #\f
+                              'shift
+                              #\A
+                              #\J
+                              #\m
+                              #\m
+                              #\e
+                              #\j
+                              #\d
+                              #\'
+                              #\m))
+  (check-equal? (Buffer-lines b)
+                '("Sing, O goddess, the anger"
+                  "that brought")))
