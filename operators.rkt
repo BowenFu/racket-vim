@@ -285,33 +285,33 @@
                     (Region (Scope (Point 0 1 1) (Point 0 1 1) #t #f 'block) '())
                     (Region (Scope (Point 0 1 1) (Point 1 4 4) #t #f 'block) '("123" "456")))))))
 
-; todo Join #\J
+; todo Join 'J
 
 (define (key-to-operator char)
   (match char
-    [#\y yank-op]
-    [#\d delete-op]
-    [#\x delete-op]
-    [#\p post-paste-op]
-    [#\P pre-paste-op]
-    [#\> right-shift-op]
-    [#\< left-shift-op]
-    [#\c 'change-op]
+    ['y yank-op]
+    ['d delete-op]
+    ['x delete-op]
+    ['p post-paste-op]
+    ['P pre-paste-op]
+    ['> right-shift-op]
+    ['< left-shift-op]
+    ['c 'change-op]
     [_ (error (~e 'missing-case-in-key-to-operator char))]))
 
 (define (key-to-operator-without-prefix char [throw? #t])
   (match char
-    [#\y yank-op]
-    [#\d delete-op]
-    [#\x delete-op]
-    [#\p post-paste-op]
-    [#\P pre-paste-op]
-    [#\> right-shift-op]
-    [#\< left-shift-op]
-    [#\c 'change-op]
-    [#\u gu-op]
-    [#\U gU-op]
-    [#\~ g~-op]
+    ['y yank-op]
+    ['d delete-op]
+    ['x delete-op]
+    ['p post-paste-op]
+    ['P pre-paste-op]
+    ['> right-shift-op]
+    ['< left-shift-op]
+    ['c 'change-op]
+    ['u gu-op]
+    ['U gU-op]
+    ['~ g~-op]
     [_ (and throw? (error (~e 'missing-case-in-key-to-operator-without-prefix char)))]))
 
 (define (key-to-g-op k)

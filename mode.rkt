@@ -5,11 +5,13 @@
          "change.rkt" "diff.rkt" "params.rkt" "operators.rkt"
          "diff-utils.rkt" "insert-utils.rkt" "search.rkt" "replace.rkt")
 
-(define (ctrl-func event)
-  (case (system-type)
-    [(macosx)        (send event get-meta-down)]
-    [(unix window)   (send event get-control-down)]
-    [else            (error 'missing-case)]))
+(define (key-symbol->char k)
+  (define str (symbol->string k))
+  (cond
+    [( = (string-length str) 1)
+     (string-ref str 0)]
+    [else #f])
+  )
 
 (define insert-mode%
   (class line-cursor-mode%
@@ -17,11 +19,11 @@
     (init-field start-point count [diff-lst '()] [change-motions #f] [start-motions-lst '()] [pre-inserted-lines '()])
     (define org-lines #f)
     (define leftest-point start-point)
-    (define/override (on-char event b mode-switcher diff-manager reg-manager)
-      (define k (send event get-key-code))
+    (define/override (on-char key-symbol b mode-switcher diff-manager reg-manager)
       (define (cur) (Buffer-cur b))
       (define (lines) (Buffer-lines b))
-      (define (left) (left-point (cur)))
+      (when (and (not (equal? key-symbol '<Esc>)) (not org-lines))
+        (set! org-lines (lines)))
       (define (insert-move! motion)
         (insert-escape! b leftest-point start-point org-lines start-motions-lst change-motions diff-lst diff-manager reg-manager #f)
         (define new-p (move-point (make-Motion motion) (cur) (lines)))
@@ -32,151 +34,154 @@
         (set! diff-lst '())
         motion)
       (define motion
-        (match k
-          [#\backspace
+        (match key-symbol
+          ['<BACKSPACE>
            (when (> (Point-col (cur)) 0)
-             (define new-cur (left))
+             (define new-cur (left-point (cur)))
              (set! leftest-point (min-Point new-cur start-point))
              (set-Buffer-cur! b new-cur)
              (Buffer-delete-char! b #t))
            #f]
-          [#\return
+          ['<CR>
            (define-values (new-p new-lines) (split-line-point-lines (cur) (lines)))
            (set-Buffer-cur! b new-p)
            (set-Buffer-lines! b new-lines)
            #f]
-          ['left       (insert-move! 'left)] ; out of insert mode and reenter
-          ['right      (insert-move! 'right*)]
-          ['up         (insert-move! 'up*)]
-          ['down       (insert-move! 'down*)]
-          [#\v #:when (ctrl-func event)
-               (define inserted-str (send the-clipboard get-clipboard-string (send event get-time-stamp)))
-               (define inserted-lines (string-split inserted-str "\n"))
-               (call-with-values
-                (thunk
-                 (insert (cur) inserted-lines (lines) 'char))
-                (update-Buffer-and-diffs! b diff-manager))
-               #f]
-          ['escape
+          ['<Left>       (insert-move! 'left)] ; out of insert mode and reenter
+          ['<Right>      (insert-move! 'right*)]
+          ['<Up>         (insert-move! 'up*)]
+          ['<Down>       (insert-move! 'down*)]
+          ['<M-v>
+             (define inserted-str (send the-clipboard get-clipboard-string (current-milliseconds)))
+             (define inserted-lines (string-split inserted-str "\n"))
+             (call-with-values
+              (thunk
+               (insert (cur) inserted-lines (lines) 'char))
+              (update-Buffer-and-diffs! b diff-manager))
+             #f]
+          ['<Esc>
            ;(displayln (~e 'start-motions-lst start-motions-lst))
            (insert-escape! b leftest-point start-point org-lines start-motions-lst change-motions diff-lst diff-manager reg-manager count)
            (send mode-switcher enter-mode! (new normal-mode%))
            'left]
-          [(? char? k)
+          [(? key-symbol->char key-symbol)
+           (define k (key-symbol->char key-symbol))
            (define updated-lines (lines-insert-char-at-point k (cur) (lines)))
            (set-Buffer-lines! b updated-lines)
            'right*]
           [_           #f]))
       (when motion (set-Buffer-cur! b (move-point (make-Motion motion) (cur) (lines))))
-      (when (and (not (equal? k 'escape)) (not org-lines))
-        (set! org-lines (lines))))))
+      )))
 
 (define normal-mode%
   (class block-cursor-mode%
     (super-new)
     (init-field [delegated-mode #f])
     (define count #f)
-    (define/override (on-char event b mode-switcher diff-manager reg-manager)
-      (define k (send event get-key-code))
+    (define/override (on-char key-symbol b mode-switcher diff-manager reg-manager)
       (define (p) (Buffer-cur b))
       (define (lines) (Buffer-lines b))
       (define (row) (Point-row (p)))
       (define (line) (list-ref (lines) (row)))
       (define (line-end) (line-end-point (row) (line)))
       (define motion
-        (match k
-          [(or #\t #\T #\f #\F #\' #\`)
-           (send mode-switcher enter-mode! (new tfm-mode% [tfm-motion (string->symbol (string k))] [operator #f] [count count] [last-mode (or delegated-mode this)])) #f]
-          [#\c         (send mode-switcher enter-mode! (new op-mode% [operator 'change-op] [prefix-count count]))
-                       (set! count #f)
-                       #f]
-          [#\m         (send mode-switcher enter-mode! (new mark-mode% [last-mode (or delegated-mode this)])) #f]
-          [(or #\i #\a #\I #\A #\C #\s #\S #\o #\O) (define start-motion-lst (insert-key-to-start-motion-lst k))
-                                                    (define scope-motion (insert-key-to-scope-motion k))
-                                                    (define start-motions-lst (map make-Motion start-motion-lst))
-                                                    (define scope-motions (make-Motion scope-motion))
-                                                    (define pre-inserted-lines (if (member k '(#\o #\O)) '("" "") '()))
-                                                    (change! start-motions-lst scope-motions (p) b pre-inserted-lines mode-switcher count)
-                                                    'nope]
-          [(or #\x #\X)(define motions (make-Motion
-                                        (if (equal? k #\x)
-                                            'right*
-                                            'left)
-                                        #:count (or count 1)))
-                       (send reg-manager set-last-cmd (make-Command delete-op motions))
-                       (call-with-values
+        (match key-symbol
+          [(or 't 'T 'f 'F '\' '\`)
+           (send mode-switcher enter-mode! (new tfm-mode% [tfm-motion key-symbol] [operator #f] [count count] [last-mode (or delegated-mode this)])) #f]
+          ['c         (send mode-switcher enter-mode! (new op-mode% [operator 'change-op] [prefix-count count]))
+                      (set! count #f)
+                      #f]
+          ['m         (send mode-switcher enter-mode! (new mark-mode% [last-mode (or delegated-mode this)])) #f]
+          [(or 'i 'a 'I 'A 'C 's 'S 'o 'O) (define start-motion-lst (insert-key-to-start-motion-lst key-symbol))
+                                           (define scope-motion (insert-key-to-scope-motion key-symbol))
+                                           (define start-motions-lst (map make-Motion start-motion-lst))
+                                           (define scope-motions (make-Motion scope-motion))
+                                           (define pre-inserted-lines (if (member key-symbol (list 'o 'O)) '("" "") '()))
+                                           (change! start-motions-lst scope-motions (p) b pre-inserted-lines mode-switcher count)
+                                           'nope]
+          [(or 'x 'X)(define motions (make-Motion
+                                      (if (equal? key-symbol 'x)
+                                          'right*
+                                          'left)
+                                      #:count (or count 1)))
+                     (send reg-manager set-last-cmd (make-Command delete-op motions))
+                     (call-with-values
+                      (thunk
+                       (repeat (send reg-manager get-last-cmd) (p) (lines) reg-manager))
+                      (update-Buffer-and-diffs! b diff-manager))
+                     (set! count #f)
+                     #f]
+          [(or 'p 'P) (define motions (make-Motion 'nope))
+                      (define op (key-to-operator key-symbol))
+                      (send reg-manager set-last-cmd (make-Command op motions))
+                      (call-with-values
+                       (thunk
+                        (repeat (send reg-manager get-last-cmd) (p) (lines) reg-manager #:count (or count 1)))
+                       (update-Buffer-and-diffs! b diff-manager))
+                      (set! count #f)
+                      #f]
+          [(or 'y 'd '> '<)(send mode-switcher enter-mode! (new op-mode% [operator (key-to-operator key-symbol)] [prefix-count count]))
+                           (set! count #f)
+                           #f]
+          ['<C-v>
+           (send mode-switcher enter-mode! (new visual-block-mode% [start-point (p)])) #f]
+          ['v         (send mode-switcher enter-mode! (new visual-char-mode% [start-point (p)])) #f]
+          ['V         (send mode-switcher enter-mode! (new visual-line-mode% [start-point (p)])) #f]
+          ['\.         (call-with-values
                         (thunk
                          (repeat (send reg-manager get-last-cmd) (p) (lines) reg-manager))
                         (update-Buffer-and-diffs! b diff-manager))
-                       (set! count #f)
                        #f]
-          [(or #\p #\P) (define motions (make-Motion 'nope))
-                        (define op (key-to-operator k))
-                        (send reg-manager set-last-cmd (make-Command op motions))
-                        (call-with-values
-                         (thunk
-                          (repeat (send reg-manager get-last-cmd) (p) (lines) reg-manager #:count (or count 1)))
-                         (update-Buffer-and-diffs! b diff-manager))
-                        (set! count #f)
-                        #f]
-          [(or #\y #\d #\> #\<)(send mode-switcher enter-mode! (new op-mode% [operator (key-to-operator k)] [prefix-count count]))
-                               (set! count #f)
-                               #f]
-          [#\v #:when (send event get-control-down)
-               (send mode-switcher enter-mode! (new visual-block-mode% [start-point (p)])) #f]
-          [#\v         (send mode-switcher enter-mode! (new visual-char-mode% [start-point (p)])) #f]
-          [#\V         (send mode-switcher enter-mode! (new visual-line-mode% [start-point (p)])) #f]
-          [#\.         (call-with-values
-                        (thunk
-                         (repeat (send reg-manager get-last-cmd) (p) (lines) reg-manager))
-                        (update-Buffer-and-diffs! b diff-manager))
-                       #f]
-          [#\;         (send reg-manager get-last-motions)]
-          [#\,         (match-define (Motion mo char count) (send reg-manager get-last-motions))
-                       (make-Motion (reverse-tf mo) char #:count count)]
-          [#\u         (define-values (new-p new-lines) (send diff-manager undo-last (lines)))
-                       (when new-p
-                         (set-Buffer-lines! b new-lines)
-                         (set-Buffer-cur! b new-p))
-                       #f]
-          [#\r #:when (send event get-control-down)
-               (define-values (new-p new-lines) (send diff-manager redo-next (lines)))
-               (when new-p
-                 (set-Buffer-lines! b new-lines)
-                 (set-Buffer-cur! b new-p))
-               #f]
-          [#\r         (send mode-switcher enter-mode! (new replace-r-mode%)) #f]
-          [#\R         (send mode-switcher enter-mode! (new replace-R-mode% [start-point (p)]))
-                       'right]
-          [#\g         (send mode-switcher enter-mode! (new g-op-mode% [prefix-count count]))
-                       #f]
-          [#\G         (define row (exact-round (sub1 (min (length (Buffer-lines b)) (or count +inf.0)))))
-                       (set-Buffer-cur! b (Point row 0 0))
-                       (send mode-switcher enter-mode! (new normal-mode%))
-                       #f] ; should be merged to key-to-motion
-          [(or #\/ #\?)(send mode-switcher enter-mode! (new command-line-mode% [count count] [prefix (string->symbol (string k))] [last-mode (or delegated-mode this)]))
-                       #f]
-          [#\:         (send mode-switcher enter-mode! (new command-line-mode% [count count] [prefix ':] [last-mode (or delegated-mode this)]))
-                       #f]
-          [(? (conjoin char? char-numeric? (lambda(k)(or count (not (equal? k #\0))))))
-           (set! count (update-count k count))
+          ['\;         (send reg-manager get-last-motions)]
+          #;[',         (match-define (Motion mo char count) (send reg-manager get-last-motions))
+             (make-Motion (reverse-tf mo) char #:count count)]
+          ['u         (define-values (new-p new-lines) (send diff-manager undo-last (lines)))
+                      (when new-p
+                        (set-Buffer-lines! b new-lines)
+                        (set-Buffer-cur! b new-p))
+                      #f]
+          ['<C-r>
+           (define-values (new-p new-lines) (send diff-manager redo-next (lines)))
+           (when new-p
+             (set-Buffer-lines! b new-lines)
+             (set-Buffer-cur! b new-p))
            #f]
-          [#\n (define single-motions (send reg-manager get-last-search-motions))
-               (struct-copy Motion single-motions [count count])]
-          [#\N (match-define (Motion mo char count) (send reg-manager get-last-search-motions))
-               (define (reverse-search-motion mo)
-                 (match mo
-                   ['search-forwards 'search-backwards]
-                   ['search-backwards 'search-forwards]))
-               (make-Motion (reverse-search-motion mo) char #:count count)]
-          [(or #\* #\#)
+          ['r         (send mode-switcher enter-mode! (new replace-r-mode%)) #f]
+          ['R         (send mode-switcher enter-mode! (new replace-R-mode% [start-point (p)]))
+                      'right]
+          ['g         (send mode-switcher enter-mode! (new g-op-mode% [prefix-count count]))
+                      #f]
+          ['G         (define row (exact-round (sub1 (min (length (Buffer-lines b)) (or count +inf.0)))))
+                      (set-Buffer-cur! b (Point row 0 0))
+                      (send mode-switcher enter-mode! (new normal-mode%))
+                      #f] ; should be merged to key-to-motion
+          [(or '/ '?)(send mode-switcher enter-mode! (new command-line-mode% [count count] [prefix key-symbol] [last-mode (or delegated-mode this)]))
+                     #f]
+          [':         (send mode-switcher enter-mode! (new command-line-mode% [count count] [prefix ':] [last-mode (or delegated-mode this)]))
+                      #f]
+          [(? (conjoin key-symbol->char
+                       (lambda(k-s)
+                         (define k (key-symbol->char k-s))
+                         (and (char-numeric? k)
+                              (or count (not (equal? k #\0)))))))
+           (set! count (update-count (key-symbol->char key-symbol) count))
+           #f]
+          ['n (define single-motions (send reg-manager get-last-search-motions))
+              (struct-copy Motion single-motions [count count])]
+          ['N (match-define (Motion mo char count) (send reg-manager get-last-search-motions))
+              (define (reverse-search-motion mo)
+                (match mo
+                  ['search-forwards 'search-backwards]
+                  ['search-backwards 'search-forwards]))
+              (make-Motion (reverse-search-motion mo) char #:count count)]
+          [(or '* '\#)
            (define search-words (Scoped-lines (get-point-scope (make-Motion 'iw) (p) (lines)) (lines)))
            (define pattern (pregexp (string-append "\\b" (first search-words) "\\b")))
-           (define motion (if (equal? k #\*) 'search-forwards 'search-backwards))
+           (define motion (if (equal? key-symbol '*) 'search-forwards 'search-backwards))
            (define search-motions (make-Motion motion pattern #:count 1))
            (send reg-manager set-last-search-motions! search-motions)
            (make-Motion motion pattern #:count count)]
-          [_           (key-to-motion k)]))
+          [_           (key-to-motion key-symbol)]))
       (cond
         [motion
          (define motions (if (symbol? motion) (make-Motion motion #:count count) motion))
@@ -198,58 +203,62 @@
       (send reg-manager set-mark! #\< (first p-pp))
       (send reg-manager set-mark! #\> (last p-pp))
       (apply Scope (append p-pp (list #t #t (get-mode)))))
-    (define/override (on-char event b mode-switcher diff-manager reg-manager)
-      (define k (send event get-key-code))
-      (match k
-        ['escape     (make-scope b reg-manager)
-                     (send mode-switcher enter-mode! (new normal-mode%))]
-        [#\v #:when (send event get-control-down)
-             (send mode-switcher enter-mode!
-                   (if (equal? (get-mode) 'block)
-                       (new normal-mode%)
-                       (new visual-block-mode% [start-point start-point])))]
-        [#\v         (send mode-switcher enter-mode!
-                           (if (equal? (get-mode) 'char)
-                               (new normal-mode%)
-                               (new visual-char-mode% [start-point start-point])))]
-        [#\V         (send mode-switcher enter-mode!
-                           (if (equal? (get-mode) 'line)
-                               (new normal-mode%)
-                               (new visual-line-mode% [start-point start-point])))]
-        [#\i         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'i] [operator visual-op] [count count]))] ; should only work when starting a visual mode / or from visual line.
-        [#\a         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'a] [operator visual-op] [count count]))] ; should only work when starting a visual mode / or from visual line.
-        [#\o         (define old-start start-point)
-                     (set! start-point (Buffer-cur b))
-                     (set-Buffer-cur! b old-start)]
-        [#\g         (define old-scope (make-scope b reg-manager))
-                     (send mode-switcher enter-mode! (new visual-g-op-mode% [visual-scope old-scope]))]
-        [#\r         (define old-scope (make-scope b reg-manager))
-                     (send mode-switcher enter-mode! (new replace-r-mode% [visual-scope old-scope]))]
-        [#\c
+    (define/override (on-char key-symbol b mode-switcher diff-manager reg-manager)
+      (match key-symbol
+        ['<Esc>     (make-scope b reg-manager)
+                    (send mode-switcher enter-mode! (new normal-mode%))]
+        ['<C-v>
+         (send mode-switcher enter-mode!
+               (if (equal? (get-mode) 'block)
+                   (new normal-mode%)
+                   (new visual-block-mode% [start-point start-point])))]
+        ['v         (send mode-switcher enter-mode!
+                          (if (equal? (get-mode) 'char)
+                              (new normal-mode%)
+                              (new visual-char-mode% [start-point start-point])))]
+        ['V         (send mode-switcher enter-mode!
+                          (if (equal? (get-mode) 'line)
+                              (new normal-mode%)
+                              (new visual-line-mode% [start-point start-point])))]
+        ['i         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'i] [operator visual-op] [count count]))] ; should only work when starting a visual mode / or from visual line.
+        ['a         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'a] [operator visual-op] [count count]))] ; should only work when starting a visual mode / or from visual line.
+        ['o         (define old-start start-point)
+                    (set! start-point (Buffer-cur b))
+                    (set-Buffer-cur! b old-start)]
+        ['g         (define old-scope (make-scope b reg-manager))
+                    (send mode-switcher enter-mode! (new visual-g-op-mode% [visual-scope old-scope]))]
+        ['r         (define old-scope (make-scope b reg-manager))
+                    (send mode-switcher enter-mode! (new replace-r-mode% [visual-scope old-scope]))]
+        ['c
          (define old-scope (make-scope b reg-manager))
          (define motions (scope-to-motion old-scope))
          (define start-motions-lst '())
          (change! start-motions-lst motions (Buffer-cur b) b '() mode-switcher count)]
         [(? (lambda (k) (key-to-operator-without-prefix k #f)))
          (define old-scope (make-scope b reg-manager))
-         (define operator (key-to-operator-without-prefix k))
+         (define operator (key-to-operator-without-prefix key-symbol))
          (define motions (scope-to-motion old-scope))
-         (operate! operator motions start-point b mode-switcher diff-manager reg-manager)]
-        [(or #\I #\A) #:when (equal? (get-mode) 'block)
-                      (define p (Buffer-cur b))
-                      (define rows (sort (map Point-row (list p start-point)) <))
-                      (define cols (sort (map Point-col (list p start-point)) <))
-                      (define col (first cols))
-                      (define fake-scope (Scope (Point (first rows) col col) (Point (last rows) col col) #t #f 'block))
-                      (define scope-motions (scope-to-motion fake-scope))
-                      (define insert-point (Point (first rows) col col))
-                      (define start-motions (make-Motion (if (equal? k #\I) 'nope 'right) #:count (- (last cols) col -1)))
-                      (change! (list start-motions) scope-motions insert-point b '() mode-switcher count)
-                      #f]
-        [(? (conjoin char? char-numeric? (lambda(k)(or count (not (equal? k #\0))))))
-           (set! count (update-count k count))
-           #f]
-        [_           (send sub-normal-mode on-char event b mode-switcher diff-manager reg-manager)]))))
+         ;(displayln (~v 'motions motions))
+         (operate! operator motions (Scope-start old-scope) b mode-switcher diff-manager reg-manager)]
+        [(or 'I 'A) #:when (equal? (get-mode) 'block)
+                    (define p (Buffer-cur b))
+                    (define rows (sort (map Point-row (list p start-point)) <))
+                    (define cols (sort (map Point-col (list p start-point)) <))
+                    (define col (first cols))
+                    (define fake-scope (Scope (Point (first rows) col col) (Point (last rows) col col) #t #f 'block))
+                    (define scope-motions (scope-to-motion fake-scope))
+                    (define insert-point (Point (first rows) col col))
+                    (define start-motions (make-Motion (if (equal? key-symbol 'I) 'nope 'right) #:count (- (last cols) col -1)))
+                    (change! (list start-motions) scope-motions insert-point b '() mode-switcher count)
+                    #f]
+        [(? (conjoin key-symbol->char
+                     (lambda(k-s)
+                       (define k (key-symbol->char k-s))
+                       (and (char-numeric? k)
+                            (or count (not (equal? k #\0)))))))
+         (set! count (update-count (key-symbol->char key-symbol) count))
+         #f]
+        [_           (send sub-normal-mode on-char key-symbol b mode-switcher diff-manager reg-manager)]))))
 
 (define visual-char-mode%
   (class (visual-mode-mixin visual-mode-base%)
@@ -275,21 +284,21 @@
     (init-field [visual-scope #f])
     
     (define scope visual-scope)
-    (define/override (on-char event b mode-switcher diff-manager reg-manager)
-      (define k (send event get-key-code))
+    (define/override (on-char key-symbol b mode-switcher diff-manager reg-manager)
       (define (p) (Buffer-cur b))
       (define (lines) (Buffer-lines b))
-      (define result (match k
-                       [#\return
+      (define result (match key-symbol
+                       ['<CR>
                         (define s (get-point-scope (make-Motion 'right) (p) (lines)))
                         (call-with-values
                          (thunk
                           (replace s (p) (lines) '("" "") 'char))
                          (update-Buffer-and-diffs! b diff-manager))]
-                       [(? char? k)
+                       [(? key-symbol->char key-symbol)
                         (define real-scope (or scope (get-point-scope (make-Motion 'right) (p) (lines))))
                         (define motions (scope-to-motion real-scope))
-                        (operate! 'replace-op motions (Scope-start real-scope) b mode-switcher diff-manager reg-manager #:op-params k)]
+                        (operate! 'replace-op motions (Scope-start real-scope) b
+                                  mode-switcher diff-manager reg-manager #:op-params (key-symbol->char key-symbol))]
                        [_ #f]))
       (and result (send mode-switcher enter-mode! (new normal-mode%))))))
 
@@ -298,8 +307,7 @@
     (super-new)
     [init-field start-point]
     (define org-line #f)
-    (define/override (on-char event b mode-switcher diff-manager reg-manager)
-      (define k (send event get-key-code))
+    (define/override (on-char key-symbol b mode-switcher diff-manager reg-manager)
       (define (cur) (Buffer-cur b))
       (define (lines) (Buffer-lines b))
       (define (row) (Point-row (cur)))
@@ -309,36 +317,35 @@
       (define (up) (up-point (cur) (lines)))
       (define (down) (down-point (cur) (lines)))
       
-      (match k
-        ['left       (set-Buffer-cur! b (left))]
-        ['right      (set-Buffer-cur! b (right))]
-        ['up         (set-Buffer-cur! b (up))]
-        ['down       (set-Buffer-cur! b (down))]
-        [#\return
+      (match key-symbol
+        ['<Left>       (set-Buffer-cur! b (left))]
+        ['<Right>      (set-Buffer-cur! b (right))]
+        ['<Up>         (set-Buffer-cur! b (up))]
+        ['<Down>       (set-Buffer-cur! b (down))]
+        ['<CR>
          (Buffer-delete-char! b #t)
          (define-values (new-p new-lines) (split-line-point-lines (cur) (lines)))
          (set-Buffer-cur! b new-p)
          (set-Buffer-lines! b new-lines)
          (set! org-line (line))
          #f]
-        [#\backspace
+        ['<BACKSPACE>
          (set-Buffer-cur! b (left))
          (when (Point<? start-point (cur))
            (define c (string-ref org-line (Point-col (cur))))
            (define updated-lines (lines-replace-char-after-point c (cur) (Buffer-lines b)))
            (set-Buffer-lines! b updated-lines))]
-        [(? char? k)
-         (define updated-lines (lines-replace-char-after-point k (cur) (Buffer-lines b)))
+        [(? key-symbol->char key-symbol)
+         (define updated-lines (lines-replace-char-after-point (key-symbol->char key-symbol) (cur) (Buffer-lines b)))
          (set-Buffer-lines! b updated-lines)
          (set-Buffer-cur! b (right))]
-        ['escape
+        ['<Esc>
          (send mode-switcher enter-mode! (new normal-mode%))
          (set-Buffer-cur! b (left))
          (set! org-line #f)
          #f]
-        ['release #f]
         [_ (void)])
-      (when (and (not (equal? k 'escape)) (not org-line)) (set! org-line (line)))
+      (when (and (not (equal? key-symbol '<Esc>)) (not org-line)) (set! org-line (line)))
       )))
 
 (define op-mode%
@@ -346,8 +353,7 @@
     (super-new)
     (init-field operator [prefix-count #f])
     (define infix-count #f)
-    (define/override (on-char event b mode-switcher diff-manager reg-manager)
-      (define k (send event get-key-code))
+    (define/override (on-char key-symbol b mode-switcher diff-manager reg-manager)
       (define p (Buffer-cur b))
       (define lines (Buffer-lines b))
       (define row (Point-row p))
@@ -358,60 +364,61 @@
         (cond
           [(not (or prefix-count infix-count)) #f]
           [(* (or prefix-count 1) (or infix-count 1))]))
-      (match k
-        [(or #\t #\T #\f #\F #\` #\')
-         (send mode-switcher enter-mode! (new tfm-mode% [tfm-motion (string->symbol (string k))] [operator operator] [count count] [last-mode (new normal-mode%)]))]
-        [#\i         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'i] [operator operator] [count count]))]
-        [#\a         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'a] [operator operator] [count count]))]
-        [(or #\/ #\?)(send mode-switcher enter-mode! (new command-line-mode% [count count] [prefix (string->symbol (string k))] [operator operator] [last-mode (new normal-mode%)]))]
+      (match key-symbol
+        [(or 't 'T 'f 'F '\` '\')
+         (send mode-switcher enter-mode! (new tfm-mode% [tfm-motion key-symbol] [operator operator] [count count] [last-mode (new normal-mode%)]))]
+        ['i         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'i] [operator operator] [count count]))]
+        ['a         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'a] [operator operator] [count count]))]
+        [(or '/ '?)(send mode-switcher enter-mode! (new command-line-mode% [count count] [prefix key-symbol] [operator operator] [last-mode (new normal-mode%)]))]
         [(or 'shift 'release)    (void)]
-        ['escape     (send mode-switcher enter-mode! (new normal-mode%))]
-        [(? (conjoin char? char-numeric? (lambda(k)(or infix-count (not (equal? k #\0))))))
-         (set! infix-count (update-count k infix-count))]
+        ['<Esc>     (send mode-switcher enter-mode! (new normal-mode%))]
+        [(? (conjoin key-symbol->char
+                     (lambda(k-s)
+                       (define k (key-symbol->char k-s))
+                       (and (char-numeric? k)
+                            (or infix-count (not (equal? k #\0)))))))
+         (set! infix-count (update-count (key-symbol->char key-symbol) infix-count))]
         [_
          (define motions
-           (match k
+           (match key-symbol
              [(? (lambda (key) (equal? operator (key-to-operator-without-prefix key #f))))
               (make-Motion 'down-line-mode #:count (sub1 (or count 1)))] ; down-line-mode include end
-             [#\n (define single-motions (send reg-manager get-last-search-motions))
-                  (struct-copy Motion single-motions [count count])]
-             [#\N (match-define (Motion mo char count) (send reg-manager get-last-search-motions))
-                  (define (reverse-search-motion mo)
-                    (match mo
-                      ['search-forwards 'search-backwards]
-                      ['search-backwards 'search-forwards]))
-                  (make-Motion (reverse-search-motion mo) char #:count count)]
-             [(or #\* #\#)
+             ['n (define single-motions (send reg-manager get-last-search-motions))
+                 (struct-copy Motion single-motions [count count])]
+             ['N (match-define (Motion mo char count) (send reg-manager get-last-search-motions))
+                 (define (reverse-search-motion mo)
+                   (match mo
+                     ['search-forwards 'search-backwards]
+                     ['search-backwards 'search-forwards]))
+                 (make-Motion (reverse-search-motion mo) char #:count count)]
+             [(or '* '\#)
               (define search-words (Scoped-lines (get-point-scope (make-Motion 'iw) p lines) lines))
               (define pattern (pregexp (string-append "\\b" (first search-words) "\\b")))
-              (define motion (if (equal? k #\*) 'search-forwards 'search-backwards))
+              (define motion (if (equal? key-symbol '*) 'search-forwards 'search-backwards))
               (define search-motions (make-Motion motion pattern #:count 1))
               (send reg-manager set-last-search-motions! search-motions)
               (make-Motion motion pattern #:count count)]
              [_           (cond
-                            [(key-to-scope k)
-                             (make-Motion (key-to-scope k) #:count count)]
-                            [else (error 'missing-case (~a k))])]))
+                            [(key-to-scope key-symbol)
+                             (make-Motion (key-to-scope key-symbol) #:count count)]
+                            [else (error 'missing-case (~a key-symbol))])]))
          (operate! operator motions p b mode-switcher diff-manager reg-manager)]))))
 
 (define g-op-mode%
   (class block-cursor-mode%
     (super-new)
     (init-field [prefix-count #f])
-    (define/override (on-char event b mode-switcher diff-manager reg-manager)
-      (define k (send event get-key-code))
+    (define/override (on-char key-symbol b mode-switcher diff-manager reg-manager)
       (define op-key
-        (match k
-          [#\~ 'g~]
-          [#\u 'gu]
-          [#\U 'gU]
-          [#\g (define row (sub1 (min (length (Buffer-lines b)) (or prefix-count 1))))
-               (set-Buffer-cur! b (Point row 0 0))
-               (send mode-switcher enter-mode! (new normal-mode%)) #f]
-          ['escape (send mode-switcher enter-mode! (new normal-mode%)) #f]
-          ['release #f]
-          ['shift #f]
-          [_          (error 'missing-case (~a k))]))
+        (match key-symbol
+          ['~ 'g~]
+          ['u 'gu]
+          ['U 'gU]
+          ['g (define row (sub1 (min (length (Buffer-lines b)) (or prefix-count 1))))
+              (set-Buffer-cur! b (Point row 0 0))
+              (send mode-switcher enter-mode! (new normal-mode%)) #f]
+          ['<Esc> (send mode-switcher enter-mode! (new normal-mode%)) #f]
+          [_          (error 'missing-case (~a key-symbol))]))
       (when op-key (define op (key-to-g-op op-key))
         (send mode-switcher enter-mode! (new op-mode% [operator op] [prefix-count prefix-count]))
         ))))
@@ -422,25 +429,24 @@
     (init-field visual-scope)
     
     (define scope visual-scope)
-    (define/override (on-char event b mode-switcher diff-manager reg-manager)
-      (define k (send event get-key-code))
+    (define/override (on-char key-symbol b mode-switcher diff-manager reg-manager)
       (define op-key
-        (match k
-          [#\~ 'g~]
-          [#\u 'gu]
-          [#\U 'gU]
-          [#\g (set-Buffer-cur! b (Point 0 0 0)) #f]
-          ['escape (send mode-switcher enter-mode! (new normal-mode%)) #f]
+        (match key-symbol
+          ['~ 'g~]
+          ['u 'gu]
+          ['U 'gU]
+          ['g (set-Buffer-cur! b (Point 0 0 0)) #f]
+          ['<Esc> (send mode-switcher enter-mode! (new normal-mode%)) #f]
           ['release #f]
           ['shift #f]
-          [_          (error 'missing-case (~a k))]))
+          [_          (error 'missing-case (~a key-symbol))]))
       (cond
         [op-key (define operator (key-to-g-op op-key))
                 (define p (Buffer-cur b))
                 (define lines (Buffer-lines b))
                 (define-values (new-point new-lines diffs) (operator scope p lines))
                 (define motions (scope-to-motion scope))
-                (unless (equal? k #\y) (send reg-manager set-last-cmd (make-Command operator motions)))
+                (unless (equal? key-symbol 'y) (send reg-manager set-last-cmd (make-Command operator motions)))
                 (set-Buffer-cur! b new-point)
                 (set-Buffer-lines! b new-lines)
                 (send diff-manager push-diffs! diffs)
@@ -451,14 +457,14 @@
   (class block-cursor-mode%
     (init-field tfm-motion operator last-mode [count 1])
     (super-new)
-    (define/override (on-char event b mode-switcher diff-manager reg-manager)
+    (define/override (on-char key-symbol b mode-switcher diff-manager reg-manager)
       (define p (Buffer-cur b))
-      (define k (send event get-key-code))
       (define lines (Buffer-lines b))
       (cond
         [(equal? operator #f)
-         (match k
-           [(? char? k)
+         (match key-symbol
+           [(? key-symbol->char key-symbol)
+            (define k (key-symbol->char key-symbol))
             (define motions
               (cond
                 [(equal? tfm-motion '\`) (Mark-Motion (send reg-manager get-mark k))]
@@ -472,11 +478,11 @@
             (send mode-switcher enter-mode! last-mode)]
            [_ (void)])]
         [else
-         (define char
-           (match k
-             [(? char? k) k]
+         (define k
+           (match key-symbol
+             [(? key-symbol->char key-symbol) (key-symbol->char key-symbol)]
              [_ #f]))
-         (when char
+         (when k
            (define motions
              (cond
                [(equal? tfm-motion '\`) (Mark-Motion (send reg-manager get-mark k))]
@@ -492,14 +498,13 @@
   (class block-cursor-mode%
     (init-field i/a? operator count)
     (super-new)
-    (define/override (on-char event b mode-switcher diff-manager reg-manager)
+    (define/override (on-char key-symbol b mode-switcher diff-manager reg-manager)
       (define m (Buffer-cur b))
-      (define k (send event get-key-code))
-      (define motion (key-to-ia-motion k i/a?))
+      (define motion (key-to-ia-motion key-symbol i/a?))
       (cond
         [motion
          (operate! operator (make-Motion motion #:count count) m b mode-switcher diff-manager reg-manager)]
-        [(equal? k 'escape)
+        [(equal? key-symbol '<Esc>)
          (send mode-switcher enter-mode! (new normal-mode%))]))))
 
 (define command-line-mode%
@@ -509,13 +514,12 @@
     (super-new)
     (define/override (get-status-line)
       (string-append (symbol->string prefix) command))
-    (define/override (on-char event b mode-switcher diff-manager reg-manager)
+    (define/override (on-char key-symbol b mode-switcher diff-manager reg-manager)
       (define m (Buffer-cur b))
-      (define k (send event get-key-code))
-      (match k
-        ['escape
+      (match key-symbol
+        ['<Esc>
          (send mode-switcher enter-mode! (new normal-mode%))]
-        [#\return
+        ['<CR>
          (match prefix
            [(or '/ '?)
             (define motion
@@ -535,10 +539,10 @@
                (send mode-switcher enter-mode! last-mode)])]
            [': (execute-command! command b mode-switcher diff-manager)]
            [else (error 'missing)])]
-        [#\backspace
+        ['<BACKSPACE>
          (set! command (substring command 0 (sub1 (string-length command))))]
-        [(? char? k)
-         (set! command (string-append command (string k)))]
+        [(? key-symbol->char key-symbol)
+         (set! command (string-append command (string (key-symbol->char key-symbol))))]
         [_ (void)]))))
 
 (define (replace-command-all! command b diff-manager)
@@ -599,15 +603,14 @@
       (string-append "%s/" src-pattern "/" dst-pattern "/gc"))
     (define/override (get-scope b)
       (sort (list (Buffer-cur b) (or range-end-p (Buffer-cur b))) Point<?))
-    (define/override (on-char event b mode-switcher diff-manager reg-manager)
+    (define/override (on-char key-symbol b mode-switcher diff-manager reg-manager)
       (define p (Buffer-cur b))
       (define lines (Buffer-lines b))
-      (define k (send event get-key-code))
-      (match k
-        ['escape
+      (match key-symbol
+        ['<Esc>
          (send mode-switcher enter-mode! sub-normal-mode)]
-        [(or #\y #\Y #\n #\N)
-         (when (or (equal? k #\y) (equal? k #\Y))
+        [(or 'y 'Y 'n 'N)
+         (when (or (equal? key-symbol 'y) (equal? key-symbol 'Y))
            (define-values (new-lines diffs) (replace-once src-pattern dst-pattern p lines))
            (set-Buffer-lines! b new-lines)
            (send diff-manager push-diffs! diffs))
@@ -618,25 +621,24 @@
             (set! range-end-p (left-point (second next-range)))]
            [else (set! range-end-p #f)
                  (send mode-switcher enter-mode! sub-normal-mode)])]
-        [(or #\a #\A) (define-values (new-lines diffs) (replace-from-point src-pattern dst-pattern p lines 'all))
-                      (set-Buffer-lines! b new-lines)
-                      (send diff-manager push-diffs! diffs)]
+        [(or 'a 'A) (define-values (new-lines diffs) (replace-from-point src-pattern dst-pattern p lines 'all))
+                    (set-Buffer-lines! b new-lines)
+                    (send diff-manager push-diffs! diffs)]
         [(or 'release 'shift) (void)]
         [_ (set! range-end-p #f)
-           (send sub-normal-mode on-char event b mode-switcher diff-manager reg-manager)]))))
+           (send sub-normal-mode on-char key-symbol b mode-switcher diff-manager reg-manager)]))))
 
 (define mark-mode%
   (class block-cursor-mode%
     (super-new)
     (init-field last-mode)
-    (define/override (on-char event b mode-switcher diff-manager reg-manager)
+    (define/override (on-char key-symbol b mode-switcher diff-manager reg-manager)
       (define p (Buffer-cur b))
-      (define k (send event get-key-code))
-      (match k
-        ['escape
+      (match key-symbol
+        ['<Esc>
          (send mode-switcher enter-mode! last-mode)]
-        [(? char? k)
-         (send reg-manager set-mark! k p)
+        [(? key-symbol->char key-symbol)
+         (send reg-manager set-mark! (key-symbol->char key-symbol) p)
          (send mode-switcher enter-mode! last-mode)]
         [(or 'release 'shift)
          (void)]

@@ -1,7 +1,6 @@
 #lang racket
-(module+ test (require rackunit))
 
-(require racket/gui "core.rkt" "controller.rkt")
+(require racket/gui "core.rkt" "controller.rkt" "key-event-key.rkt")
 
 (define (new-editor-frame controller)
   (define min-width  800)
@@ -14,11 +13,15 @@
   (define subeditor-canvas%
     (class canvas%
       (define/override (on-char event)
-        (displayln (~e (send event get-key-code)))
-        (send controller on-char event)
-        (define b (send controller get-buffer))
-        (send status-line set-label (string-append (~v (Buffer-cur b)) " " (send controller get-status-line)))
-        (send canvas on-paint))
+        (cond
+          [(ignored-key-event? event) (void)]
+          [else
+           (define key-symbol (key-event->key-symbol event))
+           (displayln (~e key-symbol))
+           (send controller on-char key-symbol)
+           (define b (send controller get-buffer))
+           (send status-line set-label (string-append (~v (Buffer-cur b)) " " (send controller get-status-line)))
+           (send canvas on-paint)]))
       (define/override (on-paint)
         (define b (send controller get-buffer))
         (render-buffer b canvas 16 controller))

@@ -124,26 +124,26 @@
 
 (define (insert-key-to-scope-motion k)
   (match k
-    [#\C '$]
-    [#\s 'right*]
-    [#\S '$*]
-    [#\i 'nope]
-    [#\a 'nope]
-    [#\I 'nope]
-    [#\A 'nope]
-    [#\o 'nope]
-    [#\O 'nope]
+    ['C '$]
+    ['s 'right*]
+    ['S '$*]
+    ['i 'nope]
+    ['a 'nope]
+    ['I 'nope]
+    ['A 'nope]
+    ['o 'nope]
+    ['O 'nope]
     [_ (error (~e 'missing-case-in-insert-key-to-scope-motion k))]))
 
 (define (insert-key-to-start-motion-lst k)
   (match k
-    [#\C (list 'nope)]
-    [#\s (list 'nope)]
-    [#\S (list '|0|)]
-    [#\i (list 'nope)]
-    [#\a (list 'right*)]
-    [#\I (list '^)]
-    [#\A (list '$*)]
-    [#\o (list '$*)]
-    [#\O (list 'up '$*)]
+    ['C (list 'nope)]
+    ['s (list 'nope)]
+    ['S (list '|0|)]
+    ['i (list 'nope)]
+    ['a (list 'right*)]
+    ['I (list '^)]
+    ['A (list '$*)]
+    ['o (list '$*)]
+    ['O (list 'up '$*)]
     [_ (error (~e 'missing-case-in-insert-key-to-start-motion-lst k))]))
