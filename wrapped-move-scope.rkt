@@ -12,19 +12,19 @@
 
 (module+ test (require typed/rackunit))
 
-(struct Motion ([motion : Symbol] [char : (U Char String #f)] [count : Natural]) #:transparent)
+(struct Motion ([motion : Symbol] [char : (U Char String #f)] [count : (Option Natural)]) #:transparent)
 
 (struct Visual-Motion ([row : Natural] [col : Natural] [mode : Symbol]) #:transparent)
 
 (struct Mark-Motion ([point : Point]) #:transparent)
 
-(: make-Motion (->* (Symbol) ((U Char String #f) #:count Natural) Motion))
-(define (make-Motion motion [char #f] #:count [count 1])
+(: make-Motion (->* (Symbol) ((U Char String #f) #:count (Option Natural)) Motion))
+(define (make-Motion motion [char #f] #:count [count #f])
   (Motion motion char count))
 
 (module+ test
-  (check-equal? (make-Motion 'e) (Motion 'e #f 1))
-  (check-equal? (make-Motion 'f #\x) (Motion 'f #\x 1))
+  (check-equal? (make-Motion 'e) (Motion 'e #f #f))
+  (check-equal? (make-Motion 'f #\x) (Motion 'f #\x #f))
   (check-equal? (make-Motion 'e #:count 2) (Motion 'e #f 2))
   (check-equal? (make-Motion 'f #\x #:count 3) (Motion 'f #\x 3)))
 
@@ -50,7 +50,8 @@
   (cond
     [(Mark-Motion? motions) (Mark-Motion-point motions)]
     [else
-     (match-define (Motion motion char count) motions)
+     (match-define (Motion motion char optional-count) motions)
+     (define count (or optional-count 1))
      (match motion
        ['left (left-point p count)]
        ['right (right-point p line count)]
@@ -87,7 +88,9 @@
                          (search-point p lines pattern 'forwards count)]
        ['search-backwards (define pattern (cast char String))
                           (search-point p lines pattern 'backwards count)]
-       ['% (%-point p lines)]
+       ['% #:when (not optional-count) (%-point p lines)]
+       ['% #:when optional-count
+           (n%-point lines count)]
        ['\| (\|-point row line count)]
        [_ (error 'move-point-missing-case (~a motion))])]))
 
@@ -177,7 +180,8 @@
     (if (or (empty? lines) (equal? row (length lines)))
         ""
         (list-ref lines row)))
-  (match-define (Motion motion char count) motions)
+  (match-define (Motion motion char optional-count) motions)
+  (define count (or optional-count 1))
   (match motion
     ['nope (Scope p p #t #f 'char)]
     ['left (left-scope p count)]
@@ -226,11 +230,16 @@
                       (search-scope p lines pattern 'forwards count)]
     ['search-backwards (define pattern (cast char String))
                        (search-scope p lines pattern 'backwards count)]
-    ['%
-     (define pp (%-point p lines))
-     (define points
-       (sort (list p pp) Point<?))
-     (Scope (first points) (last points) #t #t 'char)]
+    ['% #:when (not optional-count)
+        (define pp (%-point p lines))
+        (define points
+          (sort (list p pp) Point<?))
+        (Scope (first points) (last points) #t #t 'char)]
+    ['% #:when optional-count
+        (define pp (n%-point lines count))
+        (define points
+          (sort (list p pp) Point<?))
+        (Scope (first points) (last points) #t #t 'line)]
     ['\|
      (define pp (\|-point row line count))
      (define points

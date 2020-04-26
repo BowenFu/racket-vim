@@ -87,7 +87,6 @@
       (define (row) (Point-row (p)))
       (define (line) (list-ref (lines) (row)))
       (define (line-end) (line-end-point (row) (line)))
-      (define n (or count 1))
       (define motion
         (match k
           [(or #\t #\T #\f #\F #\' #\`)
@@ -155,21 +154,21 @@
                        (set-Buffer-cur! b (Point row 0 0))
                        (send mode-switcher enter-mode! (new normal-mode%))
                        #f] ; should be merged to key-to-motion
-          [(or #\/ #\?)(send mode-switcher enter-mode! (new command-line-mode% [count n] [prefix (string->symbol (string k))] [last-mode (or delegated-mode this)]))
+          [(or #\/ #\?)(send mode-switcher enter-mode! (new command-line-mode% [count count] [prefix (string->symbol (string k))] [last-mode (or delegated-mode this)]))
                        #f]
-          [#\:         (send mode-switcher enter-mode! (new command-line-mode% [count n] [prefix ':] [last-mode (or delegated-mode this)]))
+          [#\:         (send mode-switcher enter-mode! (new command-line-mode% [count count] [prefix ':] [last-mode (or delegated-mode this)]))
                        #f]
           [(? (conjoin char? char-numeric? (lambda(k)(or count (not (equal? k #\0))))))
            (set! count (update-count k count))
            #f]
           [#\n (define single-motions (send reg-manager get-last-search-motions))
-               (struct-copy Motion single-motions [count n])]
+               (struct-copy Motion single-motions [count count])]
           [#\N (match-define (Motion mo char count) (send reg-manager get-last-search-motions))
                (define (reverse-search-motion mo)
                  (match mo
                    ['search-forwards 'search-backwards]
                    ['search-backwards 'search-forwards]))
-               (make-Motion (reverse-search-motion mo) char #:count n)]
+               (make-Motion (reverse-search-motion mo) char #:count count)]
           [(or #\* #\#)
            (define search-words (Scoped-lines (get-point-scope (make-Motion 'iw) (p) (lines)) (lines)))
            ;(define pattern (string-append "\\<" (first search-words) "\\>"))
@@ -177,11 +176,11 @@
            (define motion (if (equal? k #\*) 'search-forwards 'search-backwards))
            (define search-motions (make-Motion motion pattern #:count 1))
            (send reg-manager set-last-search-motions! search-motions)
-           (make-Motion motion pattern #:count n)]
+           (make-Motion motion pattern #:count count)]
           [_           (key-to-motion k)]))
       (cond
         [motion
-         (define motions (if (symbol? motion) (make-Motion motion #:count n) motion))
+         (define motions (if (symbol? motion) (make-Motion motion #:count count) motion))
          (move! motions (p) b)
          (set! count #f)]
         [(Point<? (line-end) (p)) (set-Buffer-cur! b (line-end))]))))
@@ -347,7 +346,10 @@
       (define l (list-ref lines row))
       (define (line-start) (line-start-scope p l))
       (define (line-end) (line-end-scope p l))
-      (define count (* (or prefix-count 1) (or infix-count 1)))
+      (define count
+        (cond
+          [(not (or prefix-count infix-count)) #f]
+          [(* (or prefix-count 1) (or infix-count 1))]))
       (match k
         [(or #\t #\T #\f #\F #\` #\')
          (send mode-switcher enter-mode! (new tfm-mode% [tfm-motion (string->symbol (string k))] [operator operator] [count count] [last-mode (new normal-mode%)]))]
@@ -446,7 +448,6 @@
       (define p (Buffer-cur b))
       (define k (send event get-key-code))
       (define lines (Buffer-lines b))
-      (define n (or count 1))
       (cond
         [(equal? operator #f)
          (match k
@@ -458,7 +459,7 @@
                  (define m (send reg-manager get-mark k))
                  (define line-start (move-point (make-Motion '\0) m lines))
                  (Mark-Motion line-start)]
-                [else (make-Motion tfm-motion k #:count n)]))
+                [else (make-Motion tfm-motion k #:count count)]))
             (send reg-manager set-last-motions motions)
             (set-Buffer-cur! b (move-point motions p lines))
             (send mode-switcher enter-mode! last-mode)]
@@ -476,7 +477,7 @@
                 (define m (send reg-manager get-mark k))
                 (define line-start (move-point (make-Motion '\0) m lines))
                 (Mark-Motion line-start)]
-               [else (make-Motion tfm-motion k #:count n)]))
+               [else (make-Motion tfm-motion k #:count count)]))
            (operate! operator motions p b mode-switcher diff-manager reg-manager)
            (set! operator #f))]))))
 
@@ -488,10 +489,9 @@
       (define m (Buffer-cur b))
       (define k (send event get-key-code))
       (define motion (key-to-ia-motion k i/a?))
-      (define n (or count 1))
       (cond
         [motion
-         (operate! operator (make-Motion motion #:count n) m b mode-switcher diff-manager reg-manager)]
+         (operate! operator (make-Motion motion #:count count) m b mode-switcher diff-manager reg-manager)]
         [(equal? k 'escape)
          (send mode-switcher enter-mode! (new normal-mode%))]))))
 

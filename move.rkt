@@ -172,19 +172,19 @@
 
 (module+ test
   (let ([lines (list "ab" "cdef" "gh")])
-      (check-equal? (down-point (Point 0 0 0) lines 2) (Point 2 0 0))
-      (check-equal? (down-point (Point 0 0 0) lines) (Point 1 0 0))
-      (check-equal? (down-point (Point 0 0 2) lines) (Point 1 2 2))
-      (check-equal? (down-point (Point 0 1 1) lines) (Point 1 1 1))
-      (check-equal? (down-point (Point 1 1 3) lines) (Point 2 1 3))
-      (check-equal? (down-point (Point 0 2 1) lines) (Point 1 1 1))
-      (check-equal? (down-point (Point 1 2 3) lines) (Point 2 1 3))
-      (check-equal? (down-point* (Point 0 0 0) lines) (Point 1 0 0))
-      (check-equal? (down-point* (Point 0 0 2) lines) (Point 1 2 2))
-      (check-equal? (down-point* (Point 0 1 1) lines) (Point 1 1 1))
-      (check-equal? (down-point* (Point 1 1 3) lines) (Point 2 2 3))
-      (check-equal? (down-point* (Point 0 2 1) lines) (Point 1 1 1))
-      (check-equal? (down-point* (Point 1 2 3) lines) (Point 2 2 3))))
+    (check-equal? (down-point (Point 0 0 0) lines 2) (Point 2 0 0))
+    (check-equal? (down-point (Point 0 0 0) lines) (Point 1 0 0))
+    (check-equal? (down-point (Point 0 0 2) lines) (Point 1 2 2))
+    (check-equal? (down-point (Point 0 1 1) lines) (Point 1 1 1))
+    (check-equal? (down-point (Point 1 1 3) lines) (Point 2 1 3))
+    (check-equal? (down-point (Point 0 2 1) lines) (Point 1 1 1))
+    (check-equal? (down-point (Point 1 2 3) lines) (Point 2 1 3))
+    (check-equal? (down-point* (Point 0 0 0) lines) (Point 1 0 0))
+    (check-equal? (down-point* (Point 0 0 2) lines) (Point 1 2 2))
+    (check-equal? (down-point* (Point 0 1 1) lines) (Point 1 1 1))
+    (check-equal? (down-point* (Point 1 1 3) lines) (Point 2 2 3))
+    (check-equal? (down-point* (Point 0 2 1) lines) (Point 1 1 1))
+    (check-equal? (down-point* (Point 1 2 3) lines) (Point 2 2 3))))
 
 (define-type Char-Pred (-> Char Boolean))
 
@@ -770,6 +770,13 @@
   (check-equal? (G-point (list "abc")) (Point 0 0 0))
   (check-equal? (G-point (list "abc" "")) (Point 1 0 0))
   (check-equal? (G-point (list "a" "b" "c")) (Point 2 0 0)))
+
+(: n%-point (-> (Listof String) Natural Point))
+(define (n%-point lines count)
+  (when (> count 100) (error 'out-of-percentage-range))
+  (define row
+    (cast (exact-round (max (sub1 (* count (length lines) 1/100)) 0)) Natural))
+  (Point row 0 0))
 
 (: after-lines-point (->* (Point Lines) (Symbol) Point))
 (define (after-lines-point start lines [mode 'char])

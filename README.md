@@ -21,7 +21,6 @@ These are the big Vim features, put generally in the order in which we plan to i
 | [x] | Text Objects           |
 | [x] | Visual Block Mode      |
 | [x] | Replace Mode           |
-| [ ] | Multiple Select Mode   |
 | [ ] | Macros                 |
 | [ ] | Buffer/Window/Tab      |
 | [ ] | Command Remapping      |
@@ -57,7 +56,7 @@ Now follows an exhaustive list of every known Vim command that we could find.
 | [x] | :1234: j  | down N lines (also: CTRL-J, CTRL-N, NL, and Down)                                         |
 | [x] | :1234: G  | goto line N (default: last line), on the first non-blank character                        |
 | [x] | :1234: gg | goto line N (default: first line), on the first non-blank character                       |
-| [ ] | :1234: %  | goto line N percentage down in the file; N must be given, otherwise it is the `%` command |
+| [x] | :1234: %  | goto line N percentage down in the file; N must be given, otherwise it is the `%` command |
 | [ ] | :1234: gk | up N screen lines (differs from "k" when line wraps)                                      |
 | [ ] | :1234: gj | down N screen lines (differs from "j" when line wraps)                                    |
 | [ ] | :1234: -  | up N lines, on the first non-blank character                                              |
