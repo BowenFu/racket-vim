@@ -2,7 +2,7 @@
 
 (provide (all-defined-out))
 
-(require "mode.rkt" "core.rkt" "diff-manager.rkt" "reg-manager.rkt")
+(require "mode.rkt" "core.rkt" "diff-manager.rkt" "reg-manager.rkt" "macro-recorder.rkt")
 
 (define mode-switcher%
   (class object%
@@ -20,15 +20,18 @@
     (define mode-switcher (new mode-switcher%))
     (define diff-manager (new diff-manager%))
     (define reg-manager (new reg-manager%))
+    (define macro-recorder (new macro-recorder% [controller this]))
     (define/public (get-buffer)
       buffer)
     (define/public (on-char key-symbol)
+      (send macro-recorder record! key-symbol)
       (define current-mode (send mode-switcher get-current-mode))
-      (send current-mode on-char key-symbol buffer mode-switcher diff-manager reg-manager))
+      (send current-mode on-char key-symbol buffer mode-switcher diff-manager reg-manager macro-recorder))
     (define/public (draw-points dc start-row)
       (define current-mode (send mode-switcher get-current-mode))
       (send current-mode draw-points dc buffer start-row))
     (define/public (get-status-line)
       (define current-mode (send mode-switcher get-current-mode))
-      (send current-mode get-status-line))))
+      (send current-mode get-status-line))
+    ))
 

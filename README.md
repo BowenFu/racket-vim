@@ -21,7 +21,7 @@ These are the big Vim features, put generally in the order in which we plan to i
 | [x] | Text Objects           |
 | [x] | Visual Block Mode      |
 | [x] | Replace Mode           |
-| [ ] | Macros                 |
+| [x] | Macros                 |
 | [ ] | Buffer/Window/Tab      |
 | [ ] | Command Remapping      |
 
@@ -370,11 +370,11 @@ moving around:
 | Status                    | Command                           | Description    |
 | ------------------------- | --------------------------------- | -------------- |
 | [x] | :1234: . | repeat last change (with count replaced with N)                                                    | Content changes that don't happen under cursor can not be repeated. |
-| [ ] | q{a-z}                            | record typed characters into register {a-z}                                                        |
+| [x] | q{a-z}                            | record typed characters into register {a-z}                                                        |
 | [ ] | q{A-Z}                            | record typed characters, appended to register {a-z}                                                |
-| [ ] | q                                 | stop recording                                                                                     |
-| [ ] | :1234: @{a-z}                     | execute the contents of register {a-z} (N times)                                                   |
-| [ ] | :1234: @@                         | repeat previous @{a-z} (N times)                                                                   |
+| [x] | q                                 | stop recording                                                                                     |
+| [x] | :1234: @{a-z}                     | execute the contents of register {a-z} (N times)                                                   |
+| [x] | :1234: @@                         | repeat previous @{a-z} (N times)                                                                   |
 | [ ] | :@{a-z}                           | execute the contents of register {a-z} as an Ex command                                            |
 | [ ] | :@@                               | repeat previous :@{a-z}                                                                            |
 | [ ] | :[range]g[lobal]/{pattern}/[cmd]  | execute Ex command [cmd](default: ':p') on the lines within [range] where {pattern} matches        |

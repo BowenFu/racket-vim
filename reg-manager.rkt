@@ -21,6 +21,9 @@
 
     (define last-search-motions #f)
 
+    (define named-regs (make-hash))
+
+    ; marks separate from regs
     (define local-marks (make-vector 26))
     (define global-marks (make-vector 26))
     (define special-marks (make-hash))
@@ -88,4 +91,10 @@
          (define index (- (char->integer char) (char->integer #\A)))
          (vector-set! global-marks index point)])]
         [else (hash-set! special-marks char point)]))
+    
+    (define/public (get-named-reg char)
+        (hash-ref named-regs char))
+    
+    (define/public (set-named-reg! char reg)
+        (hash-set! named-regs char reg))
     ))

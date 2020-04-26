@@ -66,4 +66,12 @@
          (redo-diffs (list-ref diff-stack diff-index) lines)]
         [else
          (values #f lines)]))
+
+    (define/public (diff-stack-len-index)
+      (- (length diff-stack) diff-index))
+
+    (define/public (combine-since! len)
+      (unless (= diff-index 0) (error 'diff-index-not-0))
+      (define-values (after before) (split-at-right diff-stack len))
+      (set! diff-stack (cons (flatten after) before)))
     ))
