@@ -44,13 +44,13 @@
         [else (sub1 l-counter)]))
     (values local-counter col)))
 
-(define (%-right-point p lines [check? #t] [paren-lst #f])
+(define (%-right-point p lines [count 1] [check? #t] [paren-lst #f])
   (define-values (p-row p-col) (Point-row-col p))
   (define-values (_ this after) (before-this-after lines p-row))
   (define current-char (string-ref this p-col))
   (define paren-pair (or paren-lst (get-paren-pair current-char)))
   (unless (or (not check?) (equal? current-char (car paren-pair))) (error 'incorrect-paren (~v current-char)))
-  (define-values (init-counter init-col) (line-match-forwards paren-pair (substring this (add1 p-col)) 1))
+  (define-values (init-counter init-col) (line-match-forwards paren-pair (substring this (add1 p-col)) count))
   (define init-col+ (+ init-col p-col 1))
   (define-values (c pp)
     (for/fold ([counter init-counter]
@@ -71,13 +71,13 @@
   (check-equal? (%-right-point (Point 0 0 0) '("(123" "3))")) (Point 1 1 1))
   )
 
-(define (%-left-point p lines [check? #t] [paren-lst #f])
+(define (%-left-point p lines [count 1] [check? #t] [paren-lst #f])
   (define-values (p-row p-col) (Point-row-col p))
   (define-values (before this _) (before-this-after lines p-row))
   (define current-char (string-ref this p-col))
   (define paren-pair (or paren-lst (get-paren-pair current-char)))
   (unless (or (not check?) (equal? current-char (cdr paren-pair))) (error 'incorrect-paren (~v current-char)))
-  (define-values (init-counter init-col) (line-match-backwards paren-pair (substring this 0 p-col) -1))
+  (define-values (init-counter init-col) (line-match-backwards paren-pair (substring this 0 p-col) (- count)))
   (define-values (c pp)
     (for/fold ([counter init-counter]
                [point (Point p-row init-col init-col)])
@@ -126,11 +126,11 @@
   (define left-p
     (cond
       [(is-left-paren? char paren-pair) p]
-      [else (%-left-point p lines #f paren-pair)]))
+      [else (%-left-point p lines count #f paren-pair)]))
   (define right-p
     (cond
       [(is-right-paren? char paren-pair) p]
-      [else (%-right-point p lines #f paren-pair)]))
+      [else (%-right-point p lines count #f paren-pair)]))
   (cons left-p right-p))
   
 (module+ test

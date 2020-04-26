@@ -85,16 +85,8 @@ Now follows an exhaustive list of every known Vim command that we could find.
 | [ ] | :1234: []  | N sections backward, at end of section                      |
 | [ ] | :1234: [(  | N times back to unclosed '('                                |
 | [ ] | :1234: [{  | N times back to unclosed '{'                                |
-| [ ] | :1234: [m  | N times back to start of method (for Java)                  |
-| [ ] | :1234: [M  | N times back to end of method (for Java)                    |
 | [ ] | :1234: ])  | N times forward to unclosed ')'                             |
 | [ ] | :1234: ]}  | N times forward to unclosed '}'                             |
-| [ ] | :1234: ]m  | N times forward to start of method (for Java)               |
-| [ ] | :1234: ]M  | N times forward to end of method (for Java)                 |
-| [ ] | :1234: [#  | N times back to unclosed "#if" or "#else"                   |
-| [ ] | :1234: ]#  | N times forward to unclosed "#else" or "#endif"             |
-| [ ] | :1234: [\* | N times back to start of a C comment "/\*"                  |
-| [ ] | :1234: ]\* | N times forward to end of a C comment "\*/"                 |
 
 ## Pattern searches
 

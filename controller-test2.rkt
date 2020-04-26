@@ -102,6 +102,28 @@
                   "of Peleus, that brought")))
 
 (let ([ b (new-Buffer sample-lines)])
+  (execute-key-events b (list #\f
+                              #\,
+                              #\a
+                              #\{
+                              #\{
+                              'escape
+                              #\j
+                              #\A
+                              #\}
+                              #\}
+                              'escape
+                              #\k
+                              #\d
+                              #\2
+                              #\a
+                              #\}
+                              ))
+  (check-equal? (Buffer-lines b)
+                '("Sing,"
+                  "of Peleus, that brought")))
+
+(let ([ b (new-Buffer sample-lines)])
   (execute-key-events b (list #\j
                               #\f
                               'shift
