@@ -516,8 +516,11 @@
                 ['/ 'search-forwards]
                 ['? 'search-backwards]
                 [_ 'missing-case]))
-            (define motions (make-Motion motion command #:count count))
-            (send reg-manager set-last-search-motions! motions)
+            (when (non-empty-string? command)
+              (define motions (make-Motion motion command #:count 1))
+              (send reg-manager set-last-search-motions! motions))
+            (define latest-motions (send reg-manager get-last-search-motions))
+            (define motions (make-Motion motion (Motion-char latest-motions) #:count count))
             (cond
               [operator (operate! operator motions (Buffer-cur b) b mode-switcher diff-manager reg-manager)]
               [else

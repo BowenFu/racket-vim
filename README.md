@@ -94,8 +94,8 @@ Now follows an exhaustive list of every known Vim command that we could find.
 | ------------------------- | ---------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------- |
 | [x] | :1234: `/{pattern}[/[offset]]<CR>` | search forward for the Nth occurrence of {pattern}     | Offset not supported. |
 | [x] | :1234: `?{pattern}[?[offset]]<CR>` | search backward for the Nth occurrence of {pattern}    | As above. |
-| [ ] | :1234: `/<CR>`                     | repeat last search, in the forward direction           |
-| [ ] | :1234: `?<CR>`                     | repeat last search, in the backward direction          | 
+| [x] | :1234: `/<CR>`                     | repeat last search, in the forward direction           |
+| [x] | :1234: `?<CR>`                     | repeat last search, in the backward direction          | 
 | [x] | :1234: n                           | repeat last search                                     |
 | [x] | :1234: N                           | repeat last search, in opposite direction              |
 | [x] | :1234: \*                          | search forward for the identifier under the cursor     |
