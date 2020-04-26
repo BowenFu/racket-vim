@@ -119,11 +119,11 @@ Now follows an exhaustive list of every known Vim command that we could find.
 | [ ] | '[                                                          | go to the start of the previously operated or put text |
 | [ ] | `] | go to the end of the previously operated or put text   |
 | [ ] | ']                                                          | go to the end of the previously operated or put text   |
-| [ ] | `< | go to the start of the (previous) Visual area          |
-| [ ] | `> | go to the end of the (previous) Visual area            |
+| [x] | `< | go to the start of the (previous) Visual area          |
+| [x] | `> | go to the end of the (previous) Visual area            |
 | [ ] | `. | go to the position of the last change in this file     |
 | [ ] | '.                                                          | go to the position of the last change in this file     |
-| [ ] | '{a-zA-Z0-9[]'"<>.}                                         | same as `, but on the first non-blank in the line      |
+| [x] | '{a-zA-Z0-9[]'"<>.}                                         | same as `, but on the first non-blank in the line      |
 | [ ] | :marks                                                      | print the active marks                                 |
 | [ ] | :1234: CTRL-O                                               | go to Nth older position in jump list                  |
 | [ ] | :1234: CTRL-I                                               | go to Nth newer position in jump list                  |

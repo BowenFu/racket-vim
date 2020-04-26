@@ -195,12 +195,16 @@
     (define sub-normal-mode (new normal-mode% [delegated-mode this]))
     (define/override (get-scope b)
       (sort (list (Buffer-cur b) start-point) Point<?))
-    (define (make-scope b)
-      (apply Scope (append (get-scope b) (list #t #t (get-mode)))))
+    (define (make-scope b reg-manager)
+      (define p-pp (get-scope b))
+      (send reg-manager set-mark! #\< (first p-pp))
+      (send reg-manager set-mark! #\> (last p-pp))
+      (apply Scope (append p-pp (list #t #t (get-mode)))))
     (define/override (on-char event b mode-switcher diff-manager reg-manager)
       (define k (send event get-key-code))
       (match k
-        ['escape     (send mode-switcher enter-mode! (new normal-mode%))]
+        ['escape     (make-scope b reg-manager)
+                     (send mode-switcher enter-mode! (new normal-mode%))]
         [#\v #:when (send event get-control-down)
              (send mode-switcher enter-mode!
                    (if (equal? (get-mode) 'block)
@@ -219,12 +223,12 @@
         [#\o         (define old-start start-point)
                      (set! start-point (Buffer-cur b))
                      (set-Buffer-cur! b old-start)]
-        [#\g         (define old-scope (make-scope b))
+        [#\g         (define old-scope (make-scope b reg-manager))
                      (send mode-switcher enter-mode! (new visual-g-op-mode% [visual-scope old-scope]))]
-        [#\r         (define old-scope (make-scope b))
+        [#\r         (define old-scope (make-scope b  reg-manager))
                      (send mode-switcher enter-mode! (new replace-r-mode% [visual-scope old-scope]))]
         [(? (lambda (k) (key-to-operator-without-prefix k #f)))
-         (define old-scope (make-scope b))
+         (define old-scope (make-scope b  reg-manager))
          (define operator (key-to-operator-without-prefix k))
          (define motions (scope-to-motion old-scope))
          (operate! operator motions start-point b mode-switcher diff-manager reg-manager)]
@@ -457,7 +461,7 @@
                 [(equal? tfm-motion '\`) (Mark-Motion (send reg-manager get-mark k))]
                 [(equal? tfm-motion '\')
                  (define m (send reg-manager get-mark k))
-                 (define line-start (move-point (make-Motion '\0) m lines))
+                 (define line-start (move-point (make-Motion '\^) m lines))
                  (Mark-Motion line-start)]
                 [else (make-Motion tfm-motion k #:count count)]))
             (send reg-manager set-last-motions motions)
@@ -475,7 +479,7 @@
                [(equal? tfm-motion '\`) (Mark-Motion (send reg-manager get-mark k))]
                [(equal? tfm-motion '\')
                 (define m (send reg-manager get-mark k))
-                (define line-start (move-point (make-Motion '\0) m lines))
+                (define line-start (move-point (make-Motion '\^) m lines))
                 (Mark-Motion line-start)]
                [else (make-Motion tfm-motion k #:count count)]))
            (operate! operator motions p b mode-switcher diff-manager reg-manager)

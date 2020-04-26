@@ -45,7 +45,6 @@
 (let ([ b (new-Buffer sample-lines)])
   (execute-key-events b (list #\c
                               #\/
-                              'shift
                               #\P
                               #\return
                               #\1
@@ -204,4 +203,22 @@
                               #\return))
   (check-equal? (Buffer-lines b)
                 '("Sing, O gon"
+                  "of Peleus, that brought")))
+
+(let ([ b (new-Buffer sample-lines)])
+  (execute-key-events b (list #\j
+                              #\f
+                              #\A
+                              #\v
+                              #\e
+                              'escape
+                              #\j
+                              #\`
+                              #\<
+                              #\d
+                              #\'
+                              #\>))
+  (check-equal? (Buffer-lines b)
+                '("Sing, O goddess, the anger"
+                  "chilles son"
                   "of Peleus, that brought")))

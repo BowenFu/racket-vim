@@ -23,6 +23,7 @@
 
     (define local-marks (make-vector 26))
     (define global-marks (make-vector 26))
+    (define special-marks (make-hash))
     
     (define/public (get-reg name)
       (match name
@@ -66,20 +67,25 @@
     
     (define/public (get-mark char)
       (cond
-        [(not (char-alphabetic? char)) (error 'not-alphabetic)]
-        [(char-lower-case? char)
-         (define index (- (char->integer char) (char->integer #\a)))
-         (vector-ref local-marks index)]
-        [(char-upper-case? char)
-         (define index (- (char->integer char) (char->integer #\A)))
-         (vector-ref global-marks index)]))
+        [(char-alphabetic? char)
+         (cond
+           [(char-lower-case? char)
+            (define index (- (char->integer char) (char->integer #\a)))
+            (vector-ref local-marks index)]
+           [(char-upper-case? char)
+            (define index (- (char->integer char) (char->integer #\A)))
+            (vector-ref global-marks index)])]
+        [else (hash-ref special-marks char)]))
     
     (define/public (set-mark! char point)
       (cond
-        [(not (char-alphabetic? char)) (error 'not-alphabetic)]
+        [(char-alphabetic? char)
+         (cond
         [(char-lower-case? char)
          (define index (- (char->integer char) (char->integer #\a)))
          (vector-set! local-marks index point)]
         [(char-upper-case? char)
          (define index (- (char->integer char) (char->integer #\A)))
-         (vector-set! global-marks index point)]))))
+         (vector-set! global-marks index point)])]
+        [else (hash-set! special-marks char point)]))
+    ))
