@@ -171,8 +171,7 @@
                (make-Motion (reverse-search-motion mo) char #:count count)]
           [(or #\* #\#)
            (define search-words (Scoped-lines (get-point-scope (make-Motion 'iw) (p) (lines)) (lines)))
-           ;(define pattern (string-append "\\<" (first search-words) "\\>"))
-           (define pattern (first search-words))
+           (define pattern (pregexp (string-append "\\b" (first search-words) "\\b")))
            (define motion (if (equal? k #\*) 'search-forwards 'search-backwards))
            (define search-motions (make-Motion motion pattern #:count 1))
            (send reg-manager set-last-search-motions! search-motions)
@@ -384,8 +383,7 @@
                   (make-Motion (reverse-search-motion mo) char #:count count)]
              [(or #\* #\#)
               (define search-words (Scoped-lines (get-point-scope (make-Motion 'iw) p lines) lines))
-              ;(define pattern (string-append "\\<" (first search-words) "\\>"))
-              (define pattern (first search-words))
+              (define pattern (pregexp (string-append "\\b" (first search-words) "\\b")))
               (define motion (if (equal? k #\*) 'search-forwards 'search-backwards))
               (define search-motions (make-Motion motion pattern #:count 1))
               (send reg-manager set-last-search-motions! search-motions)
@@ -526,7 +524,7 @@
                 ['? 'search-backwards]
                 [_ 'missing-case]))
             (when (non-empty-string? command)
-              (define motions (make-Motion motion command #:count 1))
+              (define motions (make-Motion motion (pregexp command) #:count 1))
               (send reg-manager set-last-search-motions! motions))
             (define latest-motions (send reg-manager get-last-search-motions))
             (define motions (make-Motion motion (Motion-char latest-motions) #:count count))

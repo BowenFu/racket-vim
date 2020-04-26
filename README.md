@@ -140,8 +140,6 @@ Now follows an exhaustive list of every known Vim command that we could find.
 | [ ] | :1234: go           | go to Nth byte in the buffer                                                                       |
 | [ ] | :[range]go[to][off] | go to [off] byte in the buffer                                                                     |
 
-## Using tags
-
 ## Scrolling
 
 | Status             | Command       | Description                                    |
