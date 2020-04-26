@@ -31,6 +31,7 @@
 (let ([ b (new-Buffer sample-lines)])
   (execute-key-events b (list (new key-event% [key-code #\v] [control-down #f])
                               #\A
+                              'release
                               #\1
                               'escape))
   (check-equal? (Buffer-lines b)
@@ -61,6 +62,7 @@
   (execute-key-events b (list #\c
                               #\i
                               #\w
+                              'release
                               #\1
                               'escape))
   (check-equal? (Buffer-lines b)
@@ -310,6 +312,7 @@
   (execute-key-events b (list       #\t
                                     #\O
                                     #\i
+                                    'release
                                     #\backspace
                                     'down
                                     #\return
@@ -321,12 +324,14 @@
                   "ochilles son"
                   "of Peleus, that brought"))
   (check-equal? (Buffer-cur b) (Point 2 0 0)))
+
 (require (only-in racket/gui/base the-clipboard))
 (let ([ b (new-Buffer sample-lines)])
   (send the-clipboard set-clipboard-string "123\n456" (current-milliseconds))
   (execute-key-events b (list       #\2
                                     #\$
                                     #\I
+                                    'release
                                     (new key-event% [key-code #\v] [meta-down #t])
                                     'escape))
   (check-equal? (Buffer-lines b)

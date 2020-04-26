@@ -46,7 +46,9 @@
   (execute-key-events b (list #\c
                               #\/
                               #\P
+                              'release
                               #\return
+                              'release
                               #\1
                               #\2
                               'escape))
@@ -73,11 +75,13 @@
   (execute-key-events b (list #\f
                               #\O
                               #\i
+                              'release
                               #\(
                               'escape
                               #\j
                               #\b
                               #\i
+                              'release
                               #\)
                               'escape
                               #\d
@@ -88,6 +92,7 @@
 
 (let ([ b (new-Buffer sample-lines)])
   (execute-key-events b (list #\A
+                              'release
                               #\<
                               'down
                               #\>
@@ -104,11 +109,13 @@
   (execute-key-events b (list #\f
                               #\,
                               #\a
+                              'release
                               #\{
                               #\{
                               'escape
                               #\j
                               #\A
+                              'release
                               #\}
                               #\}
                               'escape
@@ -151,44 +158,41 @@
                   "of Peleus, that brought")))
 
 (let ([ b (new-Buffer sample-lines)])
-  (execute-key-events b (list 
-                         #\?
-                         #\o
-                         #\f
-                         #\return
-                         #\#
-                         #\d
-                         #\*))
+  (execute-key-events b (list #\?
+                              #\o
+                              #\f
+                              #\return
+                              #\#
+                              #\d
+                              #\*))
   (check-equal? (Buffer-lines b)
                 '("Sing, O goddess, the anger"
                   "of Peleus, that brought")))
 
 (let ([ b (new-Buffer sample-lines)])
-  (execute-key-events b (list 
-                         #\2
-                         #\/
-                         #\o
-                         #\f
-                         #\return
-                         #\d
-                         #\2
-                         'shift
-                         #\*))
+  (execute-key-events b (list #\2
+                              #\/
+                              #\o
+                              #\f
+                              #\return
+                              #\d
+                              #\2
+                              'shift
+                              #\*))
   (check-equal? (Buffer-lines b)
                 '("Sing, O goddess, the anger"
                   "of Achilles son"
                   "of Peleus, that brought")))
 
 (let ([ b (new-Buffer sample-lines)])
-  (execute-key-events b (list 
-                         #\9
-                         #\0
-                         #\%
-                         #\d
-                         #\1
-                         #\0
-                         #\0
-                         #\%))
+  (execute-key-events b (list #\9
+                              #\0
+                              #\%
+                              #\d
+                              #\1
+                              #\0
+                              #\0
+                              #\%))
   (check-equal? (Buffer-lines b)
                 '("Sing, O goddess, the anger"
                   "of Achilles son")))
@@ -222,3 +226,15 @@
                 '("Sing, O goddess, the anger"
                   "chilles son"
                   "of Peleus, that brought")))
+
+(let ([ b (new-Buffer sample-lines)])
+  (execute-key-events b (list (new key-event% [key-code #\v] [control-down #t])
+                              #\j
+                              #\5
+                              #\A
+                              #\1
+                              'escape))
+  (check-equal? (Buffer-lines b)
+                '("S111111ing, O goddess, the anger"
+    "o11111f Achilles son"
+    "of Peleus, that brought")))

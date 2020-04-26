@@ -14,20 +14,16 @@
 (define insert-mode%
   (class line-cursor-mode%
     (super-new)
-    (init start-p [diffs '()] [change-motions- #f] [start-motions-lst- '()] [pre-inserted-lines '()])
+    (init-field start-point count [diff-lst '()] [change-motions #f] [start-motions-lst '()] [pre-inserted-lines '()])
     (define org-lines #f)
-    (define start-point start-p)
-    (define diff-lst diffs)
-    (define leftest-point start-p)
-    (define change-motions change-motions-)
-    (define start-motions-lst start-motions-lst-)
+    (define leftest-point start-point)
     (define/override (on-char event b mode-switcher diff-manager reg-manager)
       (define k (send event get-key-code))
       (define (cur) (Buffer-cur b))
       (define (lines) (Buffer-lines b))
       (define (left) (left-point (cur)))
       (define (insert-move! motion)
-        (insert-escape! b leftest-point start-point org-lines start-motions-lst change-motions diff-lst diff-manager reg-manager)
+        (insert-escape! b leftest-point start-point org-lines start-motions-lst change-motions diff-lst diff-manager reg-manager #f)
         (define new-p (move-point (make-Motion motion) (cur) (lines)))
         (set! start-point new-p)
         (set! leftest-point new-p)
@@ -63,7 +59,7 @@
                #f]
           ['escape
            ;(displayln (~e 'start-motions-lst start-motions-lst))
-           (insert-escape! b leftest-point start-point org-lines start-motions-lst change-motions diff-lst diff-manager reg-manager)
+           (insert-escape! b leftest-point start-point org-lines start-motions-lst change-motions diff-lst diff-manager reg-manager count)
            (send mode-switcher enter-mode! (new normal-mode%))
            'left]
           [(? char? k)
@@ -100,7 +96,7 @@
                                                     (define start-motions-lst (map make-Motion start-motion-lst))
                                                     (define scope-motions (make-Motion scope-motion))
                                                     (define pre-inserted-lines (if (member k '(#\o #\O)) '("" "") '()))
-                                                    (change! start-motions-lst scope-motions (p) b pre-inserted-lines mode-switcher)
+                                                    (change! start-motions-lst scope-motions (p) b pre-inserted-lines mode-switcher count)
                                                     'nope]
           [#\x         (define motions (make-Motion 'right* #:count (or count 1)))
                        (send reg-manager set-last-cmd (make-Command delete-op motions))
@@ -123,9 +119,9 @@
                                (set! count #f)
                                #f]
           [#\v #:when (send event get-control-down)
-               (send mode-switcher enter-mode! (new visual-block-mode% [start-p (p)])) #f]
-          [#\v         (send mode-switcher enter-mode! (new visual-char-mode% [start-p (p)])) #f]
-          [#\V         (send mode-switcher enter-mode! (new visual-line-mode% [start-p (p)])) #f]
+               (send mode-switcher enter-mode! (new visual-block-mode% [start-point (p)])) #f]
+          [#\v         (send mode-switcher enter-mode! (new visual-char-mode% [start-point (p)])) #f]
+          [#\V         (send mode-switcher enter-mode! (new visual-line-mode% [start-point (p)])) #f]
           [#\.         (call-with-values
                         (thunk
                          (repeat (send reg-manager get-last-cmd) (p) (lines) reg-manager))
@@ -146,7 +142,7 @@
                  (set-Buffer-cur! b new-p))
                #f]
           [#\r         (send mode-switcher enter-mode! (new replace-r-mode%)) #f]
-          [#\R         (send mode-switcher enter-mode! (new replace-R-mode% [start-p (p)]))
+          [#\R         (send mode-switcher enter-mode! (new replace-R-mode% [start-point (p)]))
                        'right]
           [#\g         (send mode-switcher enter-mode! (new g-op-mode% [prefix-count count]))
                        #f]
@@ -189,8 +185,7 @@
   (class %
     (super-new)
     (abstract get-mode)
-    [init start-p]
-    (define start-point start-p)
+    [init-field start-point]
     (define count #f)
     (define sub-normal-mode (new normal-mode% [delegated-mode this]))
     (define/override (get-scope b)
@@ -209,15 +204,15 @@
              (send mode-switcher enter-mode!
                    (if (equal? (get-mode) 'block)
                        (new normal-mode%)
-                       (new visual-block-mode% [start-p start-point])))]
+                       (new visual-block-mode% [start-point start-point])))]
         [#\v         (send mode-switcher enter-mode!
                            (if (equal? (get-mode) 'char)
                                (new normal-mode%)
-                               (new visual-char-mode% [start-p start-point])))]
+                               (new visual-char-mode% [start-point start-point])))]
         [#\V         (send mode-switcher enter-mode!
                            (if (equal? (get-mode) 'line)
                                (new normal-mode%)
-                               (new visual-line-mode% [start-p start-point])))]
+                               (new visual-line-mode% [start-point start-point])))]
         [#\i         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'i] [operator visual-op] [count count]))] ; should only work when starting a visual mode / or from visual line.
         [#\a         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'a] [operator visual-op] [count count]))] ; should only work when starting a visual mode / or from visual line.
         [#\o         (define old-start start-point)
@@ -225,10 +220,15 @@
                      (set-Buffer-cur! b old-start)]
         [#\g         (define old-scope (make-scope b reg-manager))
                      (send mode-switcher enter-mode! (new visual-g-op-mode% [visual-scope old-scope]))]
-        [#\r         (define old-scope (make-scope b  reg-manager))
+        [#\r         (define old-scope (make-scope b reg-manager))
                      (send mode-switcher enter-mode! (new replace-r-mode% [visual-scope old-scope]))]
+        [#\c
+         (define old-scope (make-scope b reg-manager))
+         (define motions (scope-to-motion old-scope))
+         (define start-motions-lst '())
+         (change! start-motions-lst motions (Buffer-cur b) b '() mode-switcher count)]
         [(? (lambda (k) (key-to-operator-without-prefix k #f)))
-         (define old-scope (make-scope b  reg-manager))
+         (define old-scope (make-scope b reg-manager))
          (define operator (key-to-operator-without-prefix k))
          (define motions (scope-to-motion old-scope))
          (operate! operator motions start-point b mode-switcher diff-manager reg-manager)]
@@ -241,8 +241,11 @@
                       (define scope-motions (scope-to-motion fake-scope))
                       (define insert-point (Point (first rows) col col))
                       (define start-motions (make-Motion (if (equal? k #\I) 'nope 'right) #:count (- (last cols) col -1)))
-                      (change! (list start-motions) scope-motions insert-point b '() mode-switcher)
+                      (change! (list start-motions) scope-motions insert-point b '() mode-switcher count)
                       #f]
+        [(? (conjoin char? char-numeric? (lambda(k)(or count (not (equal? k #\0))))))
+           (set! count (update-count k count))
+           #f]
         [_           (send sub-normal-mode on-char event b mode-switcher diff-manager reg-manager)]))))
 
 (define visual-char-mode%
@@ -266,7 +269,7 @@
 (define replace-r-mode%
   (class block-cursor-mode%
     (super-new)
-    (init [visual-scope #f])
+    (init-field [visual-scope #f])
     
     (define scope visual-scope)
     (define/override (on-char event b mode-switcher diff-manager reg-manager)
@@ -290,9 +293,7 @@
 (define replace-R-mode%
   (class block-cursor-mode%
     (super-new)
-    [init start-p]
-    
-    (define start-point start-p)
+    [init-field start-point]
     (define org-line #f)
     (define/override (on-char event b mode-switcher diff-manager reg-manager)
       (define k (send event get-key-code))
@@ -368,7 +369,7 @@
          (define motions
            (match k
              [(? (lambda (key) (equal? operator (key-to-operator-without-prefix key #f))))
-              (make-Motion 'down-line-mode #:count (sub1 count))] ; down-line-mode include end
+              (make-Motion 'down-line-mode #:count (sub1 (or count 1)))] ; down-line-mode include end
              [#\n (define single-motions (send reg-manager get-last-search-motions))
                   (struct-copy Motion single-motions [count count])]
              [#\N (match-define (Motion mo char count) (send reg-manager get-last-search-motions))
@@ -416,7 +417,7 @@
 (define visual-g-op-mode%
   (class block-cursor-mode%
     (super-new)
-    (init visual-scope)
+    (init-field visual-scope)
     
     (define scope visual-scope)
     (define/override (on-char event b mode-switcher diff-manager reg-manager)
@@ -639,39 +640,40 @@
          (void)]
         ))))
 
-(define (change start-motions-lst scope-motions p lines pre-inserted-lines mode-switcher)
+(define (change start-motions-lst scope-motions p lines pre-inserted-lines mode-switcher count)
   (define scope (get-point-scope scope-motions p lines))
   (define-values (new-point new-lines diffs)
     (replace scope p lines pre-inserted-lines (Scope-mode scope)))
   ;(displayln (~e 'change p (Scope-start scope) new-point))
   (send mode-switcher enter-mode! (new insert-mode%
-                                       [start-p new-point]
-                                       [diffs diffs]
-                                       [start-motions-lst- start-motions-lst]
-                                       [change-motions- scope-motions]))
+                                       [start-point new-point]
+                                       [diff-lst diffs]
+                                       [start-motions-lst start-motions-lst]
+                                       [change-motions scope-motions]
+                                       [count count]))
   (values new-point new-lines '()))
 
-(define (change! start-motions-lst scope-motions p b pre-inserted-lines mode-switcher)
+(define (change! start-motions-lst scope-motions p b pre-inserted-lines mode-switcher count)
   (define lines (Buffer-lines b))
   (define new-p 
     (for/fold ([new-p p])
               ([motion start-motions-lst])
       (move-point motion new-p lines)))
   (define-values (new-point new-lines diffs)
-    (change start-motions-lst scope-motions new-p lines pre-inserted-lines mode-switcher))
+    (change start-motions-lst scope-motions new-p lines pre-inserted-lines mode-switcher count))
   (set-Buffer-cur! b new-point)
   (set-Buffer-lines! b new-lines))
 
 (define (visual-op scope b mode-switcher)
   (match-define (Scope start end _ _ _) scope)
-  (send mode-switcher enter-mode! (new visual-char-mode% [start-p start]))
+  (send mode-switcher enter-mode! (new visual-char-mode% [start-point start]))
   (values end (Buffer-lines b) '()))
 
 (define (operate! operator motions p b mode-switcher diff-manager reg-manager #:op-params [op-params '()])
   (cond
-    [(equal? operator 'change-op)
+    [(equal? operator 'change-op) ; only use in op-mode, not visual-mode. visual-mode change op accept count params to repeate inserted lines.
      (define start-motions-lst '())
-     (change! start-motions-lst motions p  b '() mode-switcher)]
+     (change! start-motions-lst motions p  b '() mode-switcher 1)]
     [(equal? operator visual-op)
      (define lines (Buffer-lines b))
      (define scope (get-point-scope motions p lines))
