@@ -241,7 +241,7 @@ moving around:
 | ------------------ | ---------------- | -------------------------------------------------- |
 | [x] | :1234: x         | delete N characters under and after the cursor     |
 | [ ] | :1234: Del       | delete N characters under and after the cursor     |
-| [ ] | :1234: X         | delete N characters before the cursor              |
+| [x] | :1234: X         | delete N characters before the cursor              |
 | [x] | :1234: d{motion} | delete the text that is moved over with {motion}   |
 | [x] | {visual}d        | delete the highlighted text                        |
 | [x] | :1234: dd        | delete N lines                                     |

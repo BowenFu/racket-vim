@@ -285,6 +285,7 @@
                     (Region (Scope (Point 0 1 1) (Point 0 1 1) #t #f 'block) '())
                     (Region (Scope (Point 0 1 1) (Point 1 4 4) #t #f 'block) '("123" "456")))))))
 
+; todo Join #\J
 
 (define (key-to-operator char)
   (match char

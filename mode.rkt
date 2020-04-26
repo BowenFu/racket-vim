@@ -98,7 +98,11 @@
                                                     (define pre-inserted-lines (if (member k '(#\o #\O)) '("" "") '()))
                                                     (change! start-motions-lst scope-motions (p) b pre-inserted-lines mode-switcher count)
                                                     'nope]
-          [#\x         (define motions (make-Motion 'right* #:count (or count 1)))
+          [(or #\x #\X)(define motions (make-Motion
+                                        (if (equal? k #\x)
+                                            'right*
+                                            'left)
+                                        #:count (or count 1)))
                        (send reg-manager set-last-cmd (make-Command delete-op motions))
                        (call-with-values
                         (thunk

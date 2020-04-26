@@ -236,5 +236,17 @@
                               'escape))
   (check-equal? (Buffer-lines b)
                 '("S111111ing, O goddess, the anger"
-    "o11111f Achilles son"
-    "of Peleus, that brought")))
+                  "o11111f Achilles son"
+                  "of Peleus, that brought")))
+
+
+(let ([ b (new-Buffer sample-lines)])
+  (execute-key-events b (list #\2
+                              #\l
+                              #\5
+                              'shift
+                              #\X))
+  (check-equal? (Buffer-lines b)
+                '("ng, O goddess, the anger"
+                  "of Achilles son"
+                  "of Peleus, that brought")))
