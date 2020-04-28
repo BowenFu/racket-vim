@@ -4,7 +4,12 @@
 
 (provide search)
 
-(define (search p lines pattern direction count)
+(define (search p lines command direction count)
+  (match-define (list _ pattern-str offset-str) (regexp-match #px"^(.*?)(?:/(.*))?$" command))
+  (define offset (cond
+                   [offset-str (string->number offset-str)]
+                   [else 0])) ; todo use this.
+  (define pattern (pregexp pattern-str))
   (define search-func
     (match direction
       ['forwards search-forwards]

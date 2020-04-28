@@ -6,19 +6,19 @@
 
 (require "core.rkt" "move.rkt" "scope.rkt")
 
-(require/typed "search.rkt" [search (-> Point Lines PRegexp Symbol Natural (Listof Point))])
+(require/typed "search.rkt" [search (-> Point Lines String Symbol Natural (Listof Point))])
 
 (require/typed "match-paren.rkt" [%-point (-> Point Lines Point)])
 
 (module+ test (require typed/rackunit))
 
-(struct Motion ([motion : Symbol] [char : (U Char PRegexp #f)] [count : (Option Natural)]) #:transparent)
+(struct Motion ([motion : Symbol] [char : (U Char String #f)] [count : (Option Natural)]) #:transparent)
 
 (struct Visual-Motion ([row : Natural] [col : Natural] [mode : Symbol]) #:transparent)
 
 (struct Mark-Motion ([point : Point]) #:transparent)
 
-(: make-Motion (->* (Symbol) ((U Char PRegexp #f) #:count (Option Natural)) Motion))
+(: make-Motion (->* (Symbol) ((U Char String #f) #:count (Option Natural)) Motion))
 (define (make-Motion motion [char #f] #:count [count #f])
   (Motion motion char count))
 
@@ -28,13 +28,13 @@
   (check-equal? (make-Motion 'e #:count 2) (Motion 'e #f 2))
   (check-equal? (make-Motion 'f #\x #:count 3) (Motion 'f #\x 3)))
 
-(: search-point (-> Point Lines PRegexp Symbol Natural Point))
+(: search-point (-> Point Lines String Symbol Natural Point))
 (define (search-point p lines pattern direction count)
   (define range (search p lines pattern direction count))
   (unless range (error 'not-result))
   (first range))
 
-(: search-scope (-> Point Lines PRegexp Symbol Natural Scope))
+(: search-scope (-> Point Lines String Symbol Natural Scope))
 (define (search-scope p lines pattern direction count)
   (define new-p (search-point p lines pattern direction count))
   (Scope p new-p #t #f 'char))
@@ -84,9 +84,9 @@
        ['down* (down-point* p lines count)]
        ['G (G-point lines)]
        ['nope p]
-       ['search-forwards (define pattern (cast char PRegexp))
+       ['search-forwards (define pattern (cast char String))
                          (search-point p lines pattern 'forwards count)]
-       ['search-backwards (define pattern (cast char PRegexp))
+       ['search-backwards (define pattern (cast char String))
                           (search-point p lines pattern 'backwards count)]
        ['% #:when (not optional-count) (%-point p lines)]
        ['% #:when optional-count
@@ -226,9 +226,9 @@
     ['down-line-mode (down-scope-line-mode p lines count)]
     ['G (G-scope p lines)]
     ['line (line-scope p line)]
-    ['search-forwards (define pattern (cast char PRegexp))
+    ['search-forwards (define pattern (cast char String))
                       (search-scope p lines pattern 'forwards count)]
-    ['search-backwards (define pattern (cast char PRegexp))
+    ['search-backwards (define pattern (cast char String))
                        (search-scope p lines pattern 'backwards count)]
     ['% #:when (not optional-count)
         (define pp (%-point p lines))

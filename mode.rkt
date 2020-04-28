@@ -2,7 +2,7 @@
 (provide (all-defined-out))
 (require racket/gui "draw-line.rkt" "mode-utils.rkt" "core.rkt"
          "scope.rkt" "move.rkt" "wrapped-move-scope.rkt"
-         "change.rkt" "params.rkt" "operators.rkt" "insert-utils.rkt" "search.rkt" "replace.rkt")
+         "change.rkt" "params.rkt" "operators.rkt" "insert-utils.rkt" "search.rkt" "substitude.rkt")
 
 (define (key-symbol->char k)
   (define str (symbol->string k))
@@ -175,7 +175,7 @@
                       (make-Motion (reverse-search-motion mo) char #:count count)]
                   [(or '* '\#)
                    (define search-words (Scoped-lines (get-point-scope (make-Motion 'iw) (p) (lines)) (lines)))
-                   (define pattern (pregexp (string-append "\\b" (first search-words) "\\b")))
+                   (define pattern (string-append "\\b" (first search-words) "\\b"))
                    (define motion (if (equal? key-symbol '*) 'search-forwards 'search-backwards))
                    (define search-motions (make-Motion motion pattern #:count 1))
                    (send reg-manager set-last-search-motions! search-motions)
@@ -402,7 +402,7 @@
                  (make-Motion (reverse-search-motion mo) char #:count count)]
              [(or '* '\#)
               (define search-words (Scoped-lines (get-point-scope (make-Motion 'iw) p lines) lines))
-              (define pattern (pregexp (string-append "\\b" (first search-words) "\\b")))
+              (define pattern (string-append "\\b" (first search-words) "\\b"))
               (define motion (if (equal? key-symbol '*) 'search-forwards 'search-backwards))
               (define search-motions (make-Motion motion pattern #:count 1))
               (send reg-manager set-last-search-motions! search-motions)
@@ -537,7 +537,7 @@
                 ['? 'search-backwards]
                 [_ 'missing-case]))
             (when (non-empty-string? command)
-              (define motions (make-Motion motion (pregexp command) #:count 1))
+              (define motions (make-Motion motion command #:count 1))
               (send reg-manager set-last-search-motions! motions))
             (define latest-motions (send reg-manager get-last-search-motions))
             (define motions (make-Motion motion (Motion-char latest-motions) #:count count))
