@@ -154,15 +154,6 @@ Now follows an exhaustive list of every known Vim command that we could find.
 | [ ] | z. or zz      | redraw, current line at center of window       |
 | [ ] | z- or zb      | redraw, current line at bottom of window       |
 
-These only work when 'wrap' is off:
-
-| Status                    | Command   | Description                                   |
-| ------------------------- | --------- | --------------------------------------------- | 
-| [ ] | :1234: zh | scroll screen N characters to the right       |
-| [ ] | :1234: zl | scroll screen N characters to the left        |
-| [ ] | :1234: zH | scroll screen half a screenwidth to the right |
-| [ ] | :1234: zL | scroll screen half a screenwidth to the left  |
-
 ## Inserting text
 
 | Status             | Command   | Description                                                   |
@@ -207,8 +198,9 @@ moving around:
 
 | Status                    | Command                      | Description                                                        |
 | ------------------------- | ---------------------------- | ------------------------------------------------------------------ |
+| [*] | NL or CR or CTRL-M or CTRL-J | begin new line                                                     |
+| [x] | BS or CTRL-H                 | delete the character before the cursor                             |
 | [ ] | CTRL-V {char}..              | insert character literally, or enter decimal byte value            |
-| [ ] | NL or CR or CTRL-M or CTRL-J | begin new line                                                     |
 | [ ] | CTRL-E                       | insert the character from below the cursor                         |
 | [ ] | CTRL-Y                       | insert the character from above the cursor                         |
 | [ ] | CTRL-A                       | insert previously inserted text                                    |
@@ -217,7 +209,6 @@ moving around:
 | [ ] | CTRL-N                       | insert next match of identifier before the cursor                  |
 | [ ] | CTRL-P                       | insert previous match of identifier before the cursor              |
 | [ ] | CTRL-X ...                   | complete the word before the cursor in various ways                |
-| [ ] | BS or CTRL-H                 | delete the character before the cursor                             |
 | [ ] | Del                          | delete the character under the cursor                              |
 | [ ] | CTRL-W                       | delete word before the cursor                                      |
 | [ ] | CTRL-U                       | delete all entered characters in the current line                  |
@@ -238,12 +229,12 @@ moving around:
 | Status             | Command          | Description                                        |
 | ------------------ | ---------------- | -------------------------------------------------- |
 | [x] | :1234: x         | delete N characters under and after the cursor     |
-| [ ] | :1234: Del       | delete N characters under and after the cursor     |
 | [x] | :1234: X         | delete N characters before the cursor              |
 | [x] | :1234: d{motion} | delete the text that is moved over with {motion}   |
 | [x] | {visual}d        | delete the highlighted text                        |
 | [x] | :1234: dd        | delete N lines                                     |
 | [ ] | :1234: D         | delete to the end of the line (and N-1 more lines) |
+| [ ] | :1234: Del       | delete N characters under and after the cursor     |
 | [ ] | :1234: J         | join N-1 lines (delete EOLs)                       |
 | [ ] | {visual}J        | join the highlighted lines                         |
 | [ ] | :1234: gJ        | like "J", but without inserting spaces             |
@@ -274,10 +265,10 @@ moving around:
 | Status                    | Command         | Description |
 | ------------------------- | --------------- | ----------------------------------------------------------------------------|
 | [x] | :1234: r{char}  | replace N characters with {char}                                                                  |
-| [ ] | :1234: gr{char} | replace N characters without affecting layout                                                     |
-| [x] | :1234: R        | enter Replace mode (repeat the entered text N times)                                              |
-| [ ] | :1234: gR       | enter virtual Replace mode: Like Replace mode but without affecting layout                        |
 | [x] | {visual}r{char} | in Visual block, visual, or visual line modes: Replace each char of the selected text with {char} |
+| [x] | :1234: R        | enter Replace mode (repeat the entered text N times)                                              |
+| [ ] | :1234: gr{char} | replace N characters without affecting layout                                                     |
+| [ ] | :1234: gR       | enter virtual Replace mode: Like Replace mode but without affecting layout                        |
 
 (change = delete text and enter Insert mode)
 
@@ -299,31 +290,31 @@ moving around:
 | [x] | gU{motion}              | make the text that is moved over with {motion} uppercase                                        |
 | [ ] | {visual}g?              | perform rot13 encoding on highlighted text                                                      |
 | [ ] | g?{motion}              | perform rot13 encoding on the text that is moved over with {motion}                             |
-| [ ] | :1234: CTRL-A           | add N to the number at or after the cursor                                                      |
-| [ ] | :1234: CTRL-X           | subtract N from the number at or after the cursor                                               |
 | [x] | :1234: <{motion}        | move the lines that are moved over with {motion} one shiftwidth left                            |
 | [x] | :1234: <<               | move N lines one shiftwidth left                                                                |
 | [x] | :1234: >{motion}        | move the lines that are moved over with {motion} one shiftwidth right                           |
 | [x] | :1234: >>               | move N lines one shiftwidth right                                                               |
+| [ ] | :1234: CTRL-A           | add N to the number at or after the cursor                                                      |
+| [ ] | :1234: CTRL-X           | subtract N from the number at or after the cursor                                               |
 | [ ] | :1234: gq{motion}       | format the lines that are moved over with {motion} to 'textwidth' length                        |
-| [ ]       | :[range]ce[nter][width] | center the lines in [range]                                                                     |
-| [ ]       | :[range]le[ft][indent]  | left-align the lines in [range] (with [indent])                                                 |
-| [ ]       | :[ranee]ri[ght][width]  | right-align the lines in [range]                                                                |
+| [ ] | :[range]ce[nter][width] | center the lines in [range]                                                                     |
+| [ ] | :[range]le[ft][indent]  | left-align the lines in [range] (with [indent])                                                 |
+| [ ] | :[ranee]ri[ght][width]  | right-align the lines in [range]                                                                |
 
 ## Complex changes
 
 | Status                                 | Command                                        | Description |
 | -------------------------------------- | ---------------------------------------------- | ----------- |
+| [x] | :[range]s[ubstitute]/{pattern}/{string}/[g][c] | substitute {pattern} by {string} in [range] lines; with [g], replace all occurrences of {pattern}; with [c], confirm each replacement |
+| [ ] | :[range]s[ubstitute][g][c]            | repeat previous ":s" with new range and options |
+| [ ] | &                                     | Repeat previous ":s" on current line without options |
 | [ ] | :1234: `!{motion}{command}<CR>`  | filter the lines that are moved over through {command} |
 | [ ] | :1234: `!!{command}<CR>`         | filter N lines through {command}                       |
 | [ ] | `{visual}!{command}<CR>`         | filter the highlighted lines through {command}         |
 | [ ] | `:[range]! {command}<CR>`        | filter [range] lines through {command}                 |
 | [ ] | :1234: ={motion}                 | filter the lines that are moved over through 'equalprg' |
-| [x] | :1234: ==                        | filter N lines through 'equalprg'                      |
-| [x] | {visual}=                        | filter the highlighted lines through 'equalprg'        |
-| [x] | :[range]s[ubstitute]/{pattern}/{string}/[g][c] | substitute {pattern} by {string} in [range] lines; with [g], replace all occurrences of {pattern}; with [c], confirm each replacement |
-| [ ] | :[range]s[ubstitute][g][c]            | repeat previous ":s" with new range and options |
-| [ ] | &                                     | Repeat previous ":s" on current line without options |
+| [ ] | :1234: ==                        | filter N lines through 'equalprg'                      |
+| [ ] | {visual}=                        | filter the highlighted lines through 'equalprg'        |
 | [ ] | :[range]ret[ab][!] [tabstop]          | set 'tabstop' to new value and adjust white space accordingly   |
 
 ## Visual mode

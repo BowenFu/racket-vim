@@ -2,8 +2,7 @@
 (provide (all-defined-out))
 (require racket/gui "draw-line.rkt" "mode-utils.rkt" "core.rkt"
          "scope.rkt" "move.rkt" "wrapped-move-scope.rkt"
-         "change.rkt" "diff.rkt" "params.rkt" "operators.rkt"
-         "diff-utils.rkt" "insert-utils.rkt" "search.rkt" "replace.rkt")
+         "change.rkt" "params.rkt" "operators.rkt" "insert-utils.rkt" "search.rkt" "replace.rkt")
 
 (define (key-symbol->char k)
   (define str (symbol->string k))
@@ -555,56 +554,67 @@
          (set! command (string-append command (string (key-symbol->char key-symbol))))]
         [_ (void)]))))
 
-(define (replace-command-all! command b diff-manager)
+(define (substitude-command-all! range src dst b diff-manager)
+  (define row (Point-row (Buffer-cur b)))
   (define lines (Buffer-lines b))
-  (define reg-result (regexp-match #rx"^%s/([^/]*)/([^/]*)/g$" command))
-  (cond
-    [(not reg-result) #f]
-    [else
-     (match-define (list _ src dst) reg-result)
-     (define-values (new-lines diffs) (replace-from-point src dst (Point 0 0 0) lines 'all))
-     (set-Buffer-lines! b new-lines)
-     (send diff-manager push-diffs! diffs)]))
+  (match-define (list start-line end-line) (range->start-end-line range row lines))
+  (define-values (new-lines diffs) (substitude-within-range src dst start-line end-line lines 'all))
+  (set-Buffer-lines! b new-lines)
+  (send diff-manager push-diffs! diffs))
 
-(define (replace-command-first-of-each-line! command b diff-manager)
+(define (substitude-command-first-of-line! range src dst b diff-manager)
   (define lines (Buffer-lines b))
-  (define reg-result (regexp-match #rx"^%s/([^/]*)/([^/]*)$" command))
-  (cond
-    [(not reg-result) #f]
-    [else
-     (match-define (list _ src dst) reg-result)
-     (define-values (new-lines diffs) (replace-from-point src dst (Point 0 0 0) lines 'first))
-     (set-Buffer-lines! b new-lines)
-     (send diff-manager push-diffs! diffs)]))
+  (define row (Point-row (Buffer-cur b)))
+  (match-define (list start-line end-line) (range->start-end-line range row lines))
+  (define-values (new-lines diffs) (substitude-within-range src dst start-line end-line lines 'first))
+  (set-Buffer-lines! b new-lines)
+  (send diff-manager push-diffs! diffs))
 
-(define (replace-with-asking! command b mode-switcher)
-  (define reg-result (regexp-match #rx"^%s/([^/]*)/([^/]*)/gc$" command))
+(define (substitude-with-asking! range src dst b mode-switcher)
+  (define next-range (search (Point 0 0 0) (Buffer-lines b) src 'forwards 1))
+  (cond
+    [next-range
+     (set-Buffer-cur! b (first next-range))
+     (send mode-switcher enter-mode! (new substitude-command-mode%
+                                          [src-pattern src]
+                                          [dst-pattern dst]
+                                          [range-end-p (left-point (second next-range))]))]
+    [else (send mode-switcher enter-mode! (new normal-mode%))]))
+
+(define (parse-comma-range range)
+  (define reg-result (regexp-match #rx"^(.*),(.*)$" range))
   (cond
     [(not reg-result) #f]
     [else
-     (match-define (list _ src dst) reg-result)
-     (define next-range (search (Point 0 0 0) (Buffer-lines b) src 'forwards 1))
-     (cond
-       [next-range
-        (set-Buffer-cur! b (first next-range))
-        (send mode-switcher enter-mode! (new replace-command-mode%
-                                             [src-pattern src]
-                                             [dst-pattern dst]
-                                             [range-end-p (left-point (second next-range))]))]
-       [else (send mode-switcher enter-mode! (new normal-mode%))])]))
+     (match-define (list _ start-line end-line) reg-result)
+     (map sub1 (map string->number (list start-line end-line)))]))
+
+(define (range->start-end-line range row lines)
+  (cond
+    [(parse-comma-range range)]
+    [else
+     (match range
+       ["%" (list 0 (sub1 (length lines)))]
+       ["" (list row row)]
+       [_ (error 'missing-range)])]))
 
 (define (execute-command! command b mode-switcher diff-manager)
-  ;(displayln (~e 'execute-command! command))
-  (define to-normal
-    (cond
-      [(replace-command-all! command b diff-manager)]
-      [(replace-command-first-of-each-line! command b diff-manager)]
-      [(replace-with-asking! command b mode-switcher) #f]
-      [else (error 'missing-case)]
-      ))
-  (when to-normal (send mode-switcher enter-mode! (new normal-mode%))))
+  (define reg-result (regexp-match #rx"^(.*)s(ubstitude)?/([^/]*)/([^/]*)(/g?c?)?$" command))
+  (cond
+    [(not reg-result) (error 'not-matched)]
+    [else
+     (match-define (list _ range __ src dst flag) reg-result)
+     (define to-normal
+       (match flag
+         [#f (substitude-command-first-of-line! range src dst b diff-manager)]
+         ["/g" (substitude-command-all! range src dst b diff-manager)]
+         ["/gc" (substitude-with-asking! range src dst b mode-switcher) #f]
+         ;["/c" (substitude-first-with-asking! range src dst b mode-switcher) #f]
+         [else (error 'missing-case)]
+         ))
+     (when to-normal (send mode-switcher enter-mode! (new normal-mode%)))]))
 
-(define replace-command-mode%
+(define substitude-command-mode%
   (class visual-mode-base%
     (super-new)
     (init-field src-pattern dst-pattern range-end-p)
@@ -621,7 +631,7 @@
          (send mode-switcher enter-mode! sub-normal-mode)]
         [(or 'y 'Y 'n 'N)
          (when (or (equal? key-symbol 'y) (equal? key-symbol 'Y))
-           (define-values (new-lines diffs) (replace-once src-pattern dst-pattern p lines))
+           (define-values (new-lines diffs) (substitude-once src-pattern dst-pattern p lines))
            (set-Buffer-lines! b new-lines)
            (send diff-manager push-diffs! diffs))
          (define next-range (search p lines src-pattern 'forwards 1))
@@ -631,7 +641,7 @@
             (set! range-end-p (left-point (second next-range)))]
            [else (set! range-end-p #f)
                  (send mode-switcher enter-mode! sub-normal-mode)])]
-        [(or 'a 'A) (define-values (new-lines diffs) (replace-from-point src-pattern dst-pattern p lines 'all))
+        [(or 'a 'A) (define-values (new-lines diffs) (substitude-from-point src-pattern dst-pattern p lines 'all))
                     (set-Buffer-lines! b new-lines)
                     (send diff-manager push-diffs! diffs)]
         [(or 'release 'shift) (void)]

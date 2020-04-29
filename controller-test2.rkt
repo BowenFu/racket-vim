@@ -1,7 +1,6 @@
 #lang racket
 
 (require rackunit
-         (only-in racket/gui/base key-event% key-code-symbol?)
          "controller.rkt" "core.rkt")
 
 (define (execute-key-symbols b lst)

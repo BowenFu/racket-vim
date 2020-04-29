@@ -24,6 +24,7 @@
                   "of Achilles son"
                   "of Peleus, that brought"))
   (check-equal? (Buffer-cur b) (Point 0 23 +inf.0)))
+
 (let ([ b (new-Buffer sample-lines)])
   (execute-key-symbols b (list       'o
                                     '\1
@@ -187,6 +188,15 @@
   (execute-key-symbols b (list ':
                               '%
                               's
+                              'u
+                              'b
+                              's
+                              't
+                              'i
+                              't
+                              'u
+                              'd
+                              'e
                               '/
                               'o
                               '/
