@@ -387,12 +387,12 @@ moving around:
 
 | Status                    | Command       | Description                                                                  |
 | ------------------------- | ------------- | ---------------------------------------------------------------------------- |
-| [ ] | ,             | separates two line numbers                                                   |
+| [x] | ,             | separates two line numbers                                                   |
 | [ ] | ;             | idem, set cursor to the first line number before interpreting the second one |
-| [ ] | {number}      | an absolute line number                                                      |
-| [ ] | .             | the current line                                                             |
-| [ ] | \$            | the last line in the file                                                    |
-| [ ] | %             | equal to 1,\$ (the entire file)                                              |
+| [x] | {number}      | an absolute line number                                                      |
+| [x] | .             | the current line                                                             |
+| [x] | \$            | the last line in the file                                                    |
+| [x] | %             | equal to 1,\$ (the entire file)                                              |
 | [ ] | \*            | equal to '<,'> (visual area)                                                 |
 | [ ] | 't            | position of mark t                                                           |
 | [ ] | /{pattern}[/] | the next line where {pattern} matches                                        |

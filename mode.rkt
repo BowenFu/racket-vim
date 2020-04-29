@@ -581,22 +581,29 @@
                                           [range-end-p (left-point (second next-range))]))]
     [else (send mode-switcher enter-mode! (new normal-mode%))]))
 
-(define (parse-comma-range range)
+(define (range-line->line range-line row lines)
+  (match range-line
+    [(or "" ".") row]
+    ["$" (sub1 (length lines))]
+    [(? string->number range-line) (sub1 (string->number range-line))]
+    [_ (error 'missing-range-line-case)]))
+
+(define (parse-comma-range range row lines)
   (define reg-result (regexp-match #rx"^(.*),(.*)$" range))
   (cond
     [(not reg-result) #f]
     [else
      (match-define (list _ start-line end-line) reg-result)
-     (map sub1 (map string->number (list start-line end-line)))]))
+     (map (lambda (l) (range-line->line l row lines)) (list start-line end-line))]))
 
 (define (range->start-end-line range row lines)
   (cond
-    [(parse-comma-range range)]
+    [(parse-comma-range range row lines)]
     [else
      (match range
        ["%" (list 0 (sub1 (length lines)))]
        ["" (list row row)]
-       [_ (error 'missing-range)])]))
+       [_ (error 'missing-range-case)])]))
 
 (define (execute-command! command b mode-switcher diff-manager)
   (define reg-result (regexp-match #rx"^(.*)s(ubstitude)?/([^/]*)/([^/]*)(/g?c?)?$" command))

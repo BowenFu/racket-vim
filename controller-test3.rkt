@@ -49,3 +49,23 @@
                   "of Acholles son"
                   "of Peleus, that brought"))
   (check-equal? (Buffer-cur b) (Point 0 0 0)))
+
+
+(let ([ b (new-Buffer sample-lines)])
+  (execute-key-symbols b (list      ':
+                                    '|2|
+                                    '|,|
+                                    '$
+                                    's
+                                    '/
+                                    'o
+                                    '/
+                                    'x
+                                    '/
+                                    'g
+                                    '<CR>))
+  (check-equal? (Buffer-lines b)
+                '("Sing, O goddess, the anger"
+                  "xf Achilles sxn"
+                  "xf Peleus, that brxught"))
+  (check-equal? (Buffer-cur b) (Point 0 0 0)))
