@@ -1,6 +1,6 @@
 #lang racket
 (provide (all-defined-out))
-(require racket/gui "draw-line.rkt" "mode-utils.rkt" "core.rkt"
+(require racket/gui "draw-line.rkt" "mode-utils.rkt" "core.rkt" "mode-base.rkt"
          "scope.rkt" "move.rkt" "wrapped-move-scope.rkt"
          "change.rkt" "params.rkt" "operators.rkt" "insert-utils.rkt" "search.rkt" "substitude.rkt")
 
@@ -109,7 +109,7 @@
                                               (if (equal? key-symbol 'x)
                                                   'right*
                                                   'left)
-                                              #:count (or count 1)))
+                                              #:count count))
                              (send reg-manager set-last-cmd (make-Command delete-op motions))
                              (call-with-values
                               (thunk
@@ -161,9 +161,9 @@
                               (set-Buffer-cur! b (Point row 0 0))
                               (send mode-switcher enter-mode! (new normal-mode%))
                               #f] ; should be merged to key-to-motion
-                  [(or '/ '?)(send mode-switcher enter-mode! (new command-line-mode% [count count] [prefix key-symbol] [last-mode (or delegated-mode this)]))
+                  [(or '/ '?)(send mode-switcher enter-mode! (new command-line-mode-decorator% [count count] [prefix key-symbol] [last-mode (or delegated-mode this)]))
                              #f]
-                  [':         (send mode-switcher enter-mode! (new command-line-mode% [count count] [prefix ':] [last-mode (or delegated-mode this)]))
+                  [':         (send mode-switcher enter-mode! (new command-line-mode-decorator% [count count] [prefix ':] [last-mode (or delegated-mode this)]))
                               #f]
                   ['n (define single-motions (send reg-manager get-last-search-motions))
                       (struct-copy Motion single-motions [count count])]
@@ -258,16 +258,16 @@
                     (define scope-motions (scope-to-motion fake-scope))
                     (define insert-point (Point (first rows) col col))
                     (define start-motions (make-Motion (if (equal? key-symbol 'I) 'nope 'right) #:count (- (last cols) col -1)))
-                    (change! (list start-motions) scope-motions insert-point b '() mode-switcher count)
-                    #f]
+                    (change! (list start-motions) scope-motions insert-point b '() mode-switcher count)]
         [(? (conjoin key-symbol->char
                      (lambda(k-s)
                        (define k (key-symbol->char k-s))
                        (and (char-numeric? k)
                             (or count (not (equal? k #\0)))))))
-         (set! count (update-count (key-symbol->char key-symbol) count))
-         #f]
-        [_           (send sub-normal-mode on-char key-symbol b mode-switcher diff-manager reg-manager macro-recorder)]))))
+         (set! count (update-count (key-symbol->char key-symbol) count))]
+        [':    (make-scope b reg-manager)
+               (send mode-switcher enter-mode! (new command-line-mode-decorator% [count count] [prefix ':] [last-mode this] [command "'<,'>"]))]
+        [_     (send sub-normal-mode on-char key-symbol b mode-switcher diff-manager reg-manager macro-recorder)]))))
 
 (define visual-char-mode%
   (class (visual-mode-mixin visual-mode-base%)
@@ -378,7 +378,7 @@
          (send mode-switcher enter-mode! (new tfm-mode% [tfm-motion key-symbol] [operator operator] [count count] [last-mode (new normal-mode%)]))]
         ['i         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'i] [operator operator] [count count]))]
         ['a         (send mode-switcher enter-mode! (new op-ia-mode% [i/a? 'a] [operator operator] [count count]))]
-        [(or '/ '?)(send mode-switcher enter-mode! (new command-line-mode% [count count] [prefix key-symbol] [operator operator] [last-mode (new normal-mode%)]))]
+        [(or '/ '?)(send mode-switcher enter-mode! (new command-line-mode-decorator% [count count] [prefix key-symbol] [operator operator] [last-mode (new normal-mode%)]))]
         [(or 'shift 'release)    (void)]
         ['<Esc>     (send mode-switcher enter-mode! (new normal-mode%))]
         [(? (conjoin key-symbol->char
@@ -516,11 +516,12 @@
         [(equal? key-symbol '<Esc>)
          (send mode-switcher enter-mode! (new normal-mode%))]))))
 
-(define command-line-mode%
-  (class block-cursor-mode%
-    (init-field prefix count last-mode [operator #f])
-    (define command "")
+(define command-line-mode-decorator%
+  (class mode%
+    (init-field prefix count last-mode [operator #f] [command ""])
     (super-new)
+    (define/override (draw-points dc b start-row)
+      (send last-mode draw-points dc b start-row))
     (define/override (get-status-line)
       (string-append (symbol->string prefix) command))
     (define/override (on-char key-symbol b mode-switcher diff-manager reg-manager macro-recorder)
@@ -546,25 +547,29 @@
               [else
                (set-Buffer-cur! b (move-point motions (Buffer-cur b) (Buffer-lines b)))
                (send mode-switcher enter-mode! last-mode)])]
-           [': (execute-command! command b mode-switcher diff-manager)]
+           [': (execute-command! command b mode-switcher diff-manager reg-manager)]
            [else (error 'missing)])]
         ['<BACKSPACE>
-         (set! command (substring command 0 (sub1 (string-length command))))]
+         (cond
+           [(non-empty-string? command)
+            (set! command (substring command 0 (sub1 (string-length command))))]
+           [else
+            (send mode-switcher enter-mode! last-mode)])]
         [(? key-symbol->char key-symbol)
          (set! command (string-append command (string (key-symbol->char key-symbol))))]
         [_ (void)]))))
 
-(define (substitude-command! range src dst b diff-manager mode)
+(define (substitude-command! range src dst b diff-manager mode reg-manager)
   (define p (Buffer-cur b))
   (define lines (Buffer-lines b))
-  (match-define (list start-line end-line) (range->start-end-line range (Point-row p) lines))
+  (match-define (list start-line end-line) (range->start-end-line range (Point-row p) lines reg-manager))
   (define-values (new-lines diffs) (substitude-within-range src dst start-line end-line lines mode))
   (set-Buffer-lines! b new-lines)
   (send diff-manager push-diffs! diffs))
 
-(define (substitude-with-asking! search-range src dst b mode-switcher mode)
+(define (substitude-with-asking! search-range src dst b mode-switcher mode reg-manager)
   (define lines (Buffer-lines b))
-  (match-define (list start-line end-line) (range->start-end-line search-range (Point-row (Buffer-cur b)) lines))
+  (match-define (list start-line end-line) (range->start-end-line search-range (Point-row (Buffer-cur b)) lines reg-manager))
   (define matched-range (search (Point start-line 0 0) lines src 'forwards 1 #t))
   (cond
     [(and matched-range (<= (Point-row (first matched-range)) end-line))
@@ -593,7 +598,17 @@
        [(Point-row (first matched-range))])
      ]))
 
-(define (range-line->line range-line row lines)
+(define (range-line->mark range-line reg-manager)
+  (define match-result (regexp-match #px"^'(.)$" range-line))
+  (cond
+    [(not match-result) #f]
+    [else
+      (match-define (list _ k) match-result)
+      (define m (send reg-manager get-mark (string-ref k 0)))
+      (Point-row m)])
+)
+
+(define (range-line->line range-line row lines reg-manager)
   (match range-line
     [(or "" ".") row]
     ["$" (sub1 (length lines))]
@@ -601,26 +616,32 @@
     [_
      (cond
        [(range-line->search range-line lines)]
+       [(range-line->mark range-line reg-manager)]
        [else (error 'missing-range-line-case (~v range-line))])]))
 
-(define (parse-comma-range range row lines)
+(define (parse-comma-range range row lines reg-manager)
   (define reg-result (regexp-match #rx"^(.*),(.*)$" range))
   (cond
     [(not reg-result) #f]
     [else
      (match-define (list _ start-line end-line) reg-result)
-     (map (lambda (l) (range-line->line l row lines)) (list start-line end-line))]))
+     (map (lambda (l) (range-line->line l row lines reg-manager)) (list start-line end-line))]))
 
-(define (range->start-end-line range row lines)
+(define (range->start-end-line range row lines reg-manager)
   (cond
-    [(parse-comma-range range row lines)]
+    [(parse-comma-range range row lines reg-manager)]
     [else
      (match range
        ["%" (list 0 (sub1 (length lines)))]
-       ["" (list row row)]
-       [_ (error 'missing-range-case)])]))
+       [_
+        (define single-line
+          (cond
+            [(range-line->line range row lines reg-manager)]
+            [else (error 'missing-range-case)]))
+        (list single-line single-line)
+        ])]))
 
-(define (execute-command! command b mode-switcher diff-manager)
+(define (execute-command! command b mode-switcher diff-manager reg-manager)
   (define reg-result (regexp-match #rx"^(.*)s(ubstitude)?/([^/]*)/([^/]*)(/g?c?)?$" command))
   (cond
     [(not reg-result) (error 'not-matched)]
@@ -628,10 +649,10 @@
      (match-define (list _ range __ src dst flag) reg-result)
      (define to-normal
        (match flag
-         [#f (substitude-command! range src dst b diff-manager 'first)]
-         ["/g" (substitude-command! range src dst b diff-manager 'all)]
-         ["/gc" (substitude-with-asking! range src dst b mode-switcher 'all) #f]
-         ["/c" (substitude-with-asking! range src dst b mode-switcher 'first) #f]
+         [#f (substitude-command! range src dst b diff-manager 'first reg-manager)]
+         ["/g" (substitude-command! range src dst b diff-manager 'all reg-manager)]
+         ["/gc" (substitude-with-asking! range src dst b mode-switcher 'all reg-manager) #f]
+         ["/c" (substitude-with-asking! range src dst b mode-switcher 'first reg-manager) #f]
          [else (error 'missing-case)]
          ))
      (when to-normal (send mode-switcher enter-mode! (new normal-mode%)))]))

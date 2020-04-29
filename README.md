@@ -394,7 +394,7 @@ moving around:
 | [x] | \$            | the last line in the file                                                    |
 | [x] | %             | equal to 1,\$ (the entire file)                                              |
 | [ ] | \*            | equal to '<,'> (visual area)                                                 |
-| [ ] | 't            | position of mark t                                                           |
+| [*] | 't            | position of mark t                                                           |
 | [*] | /{pattern}[/] | the next line where {pattern} matches                                        |
 | [*] | ?{pattern}[?] | the previous line where {pattern} matches                                    |
 | [ ] | +[num]        | add [num] to the preceding line number (default: 1)                          |
