@@ -1,6 +1,6 @@
 #lang racket
 
-(provide substitude-from-point substitude-within-range substitude-once)
+(provide substitude-from-point-to-line substitude-within-range substitude-once)
 
 (require "core.rkt" "common-utils.rkt" "wrapped-move-scope.rkt" "diff.rkt" "diff-utils.rkt")
 
@@ -19,9 +19,9 @@
   (define scope (Scope start start #t #t 'line))
   (get-replace-diffs scope start (list new-line) 'line lines))
 
-(define (substitude-from-point src dst p lines mode)
+(define (substitude-from-point-to-line src dst p end-line lines mode)
   (define-values (row col) (Point-row-col p))
-  (define-values (_ this after) (before-this-after lines row))
+  (define-values (_ this after) (before-this-after (take lines end-line) row))
   (define new-this (substitude-line-from-col src dst this col mode))
   (define this-diff-lst
     (cond

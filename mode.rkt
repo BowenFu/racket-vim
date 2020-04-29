@@ -554,31 +554,27 @@
          (set! command (string-append command (string (key-symbol->char key-symbol))))]
         [_ (void)]))))
 
-(define (substitude-command-all! range src dst b diff-manager)
+(define (substitude-command! range src dst b diff-manager mode)
   (define row (Point-row (Buffer-cur b)))
   (define lines (Buffer-lines b))
   (match-define (list start-line end-line) (range->start-end-line range row lines))
-  (define-values (new-lines diffs) (substitude-within-range src dst start-line end-line lines 'all))
+  (define-values (new-lines diffs) (substitude-within-range src dst start-line end-line lines mode))
   (set-Buffer-lines! b new-lines)
   (send diff-manager push-diffs! diffs))
 
-(define (substitude-command-first-of-line! range src dst b diff-manager)
+(define (substitude-with-asking! search-range src dst b mode-switcher mode)
   (define lines (Buffer-lines b))
-  (define row (Point-row (Buffer-cur b)))
-  (match-define (list start-line end-line) (range->start-end-line range row lines))
-  (define-values (new-lines diffs) (substitude-within-range src dst start-line end-line lines 'first))
-  (set-Buffer-lines! b new-lines)
-  (send diff-manager push-diffs! diffs))
-
-(define (substitude-with-asking! range src dst b mode-switcher)
-  (define next-range (search (Point 0 0 0) (Buffer-lines b) src 'forwards 1))
+  (match-define (list start-line end-line) (range->start-end-line search-range (Point-row (Buffer-cur b)) lines))
+  (define matched-range (search (Point start-line 0 0) lines src 'forwards 1 #t))
   (cond
-    [next-range
-     (set-Buffer-cur! b (first next-range))
+    [(and matched-range (<= (Point-row (first matched-range)) end-line))
+     (set-Buffer-cur! b (first matched-range))
      (send mode-switcher enter-mode! (new substitude-command-mode%
+                                          [end-line end-line]
                                           [src-pattern src]
                                           [dst-pattern dst]
-                                          [range-end-p (left-point (second next-range))]))]
+                                          [range-end-p (left-point (second matched-range))]
+                                          [mode mode]))]
     [else (send mode-switcher enter-mode! (new normal-mode%))]))
 
 (define (range-line->line range-line row lines)
@@ -613,10 +609,10 @@
      (match-define (list _ range __ src dst flag) reg-result)
      (define to-normal
        (match flag
-         [#f (substitude-command-first-of-line! range src dst b diff-manager)]
-         ["/g" (substitude-command-all! range src dst b diff-manager)]
-         ["/gc" (substitude-with-asking! range src dst b mode-switcher) #f]
-         ;["/c" (substitude-first-with-asking! range src dst b mode-switcher) #f]
+         [#f (substitude-command! range src dst b diff-manager 'first)]
+         ["/g" (substitude-command! range src dst b diff-manager 'all)]
+         ["/gc" (substitude-with-asking! range src dst b mode-switcher 'all) #f]
+         ["/c" (substitude-with-asking! range src dst b mode-switcher 'first) #f]
          [else (error 'missing-case)]
          ))
      (when to-normal (send mode-switcher enter-mode! (new normal-mode%)))]))
@@ -624,7 +620,7 @@
 (define substitude-command-mode%
   (class visual-mode-base%
     (super-new)
-    (init-field src-pattern dst-pattern range-end-p)
+    (init-field src-pattern dst-pattern range-end-p mode end-line)
     (define sub-normal-mode (new normal-mode%))
     (define/override (get-status-line)
       (string-append "%s/" src-pattern "/" dst-pattern "/gc"))
@@ -641,14 +637,19 @@
            (define-values (new-lines diffs) (substitude-once src-pattern dst-pattern p lines))
            (set-Buffer-lines! b new-lines)
            (send diff-manager push-diffs! diffs))
-         (define next-range (search p lines src-pattern 'forwards 1))
+         (define next-search-p
+           (match mode
+             ['all range-end-p]
+             ['first (move-point (make-Motion '$) range-end-p lines)]
+             [_ (error 'missing-mode-case)]))
+         (define next-range (search next-search-p lines src-pattern 'forwards 1 #f))
          (cond
-           [(and next-range (not (Point<? (first next-range) p)))
+           [(and next-range (not (Point<? (first next-range) p)) (<= (Point-row (first next-range)) end-line))
             (set-Buffer-cur! b (first next-range))
             (set! range-end-p (left-point (second next-range)))]
            [else (set! range-end-p #f)
                  (send mode-switcher enter-mode! sub-normal-mode)])]
-        [(or 'a 'A) (define-values (new-lines diffs) (substitude-from-point src-pattern dst-pattern p lines 'all))
+        [(or 'a 'A) (define-values (new-lines diffs) (substitude-from-point-to-line src-pattern dst-pattern p end-line lines 'all))
                     (set-Buffer-lines! b new-lines)
                     (send diff-manager push-diffs! diffs)]
         [(or 'release 'shift) (void)]

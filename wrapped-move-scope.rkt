@@ -6,7 +6,7 @@
 
 (require "core.rkt" "move.rkt" "scope.rkt")
 
-(require/typed "search.rkt" [search (-> Point Lines String Symbol Natural (Listof Point))])
+(require/typed "search.rkt" [search (-> Point Lines String Symbol Natural Boolean (Listof Point))])
 
 (require/typed "match-paren.rkt" [%-point (-> Point Lines Point)])
 
@@ -30,7 +30,7 @@
 
 (: search-point (-> Point Lines String Symbol Natural Point))
 (define (search-point p lines pattern direction count)
-  (define range (search p lines pattern direction count))
+  (define range (search p lines pattern direction count #f))
   (unless range (error 'not-result))
   (first range))
 
