@@ -138,7 +138,7 @@
                   "and Peleus, that brought"))
   (check-equal? (Buffer-cur b) (Point 2 0 0)))
 (let ([ b (new-Buffer sample-lines)])
-  (execute-key-symbols b (list       'G
+  (execute-key-symbols b (list      'G
                                     ':
                                     '%
                                     's
@@ -161,8 +161,9 @@
                   "of Achilles son"
                   "and Peleus, that brought"))
   (check-equal? (Buffer-cur b) (Point 2 0 0)))
+
 (let ([ b (new-Buffer sample-lines)])
-  (execute-key-symbols b (list       'G
+  (execute-key-symbols b (list      'G
                                     ':
                                     '%
                                     's

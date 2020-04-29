@@ -555,9 +555,9 @@
         [_ (void)]))))
 
 (define (substitude-command! range src dst b diff-manager mode)
-  (define row (Point-row (Buffer-cur b)))
+  (define p (Buffer-cur b))
   (define lines (Buffer-lines b))
-  (match-define (list start-line end-line) (range->start-end-line range row lines))
+  (match-define (list start-line end-line) (range->start-end-line range (Point-row p) lines))
   (define-values (new-lines diffs) (substitude-within-range src dst start-line end-line lines mode))
   (set-Buffer-lines! b new-lines)
   (send diff-manager push-diffs! diffs))
@@ -577,12 +577,31 @@
                                           [mode mode]))]
     [else (send mode-switcher enter-mode! (new normal-mode%))]))
 
+(define (range-line->search range-line lines)
+  (define match-result (regexp-match #px"^(.)(.*)\\1$" range-line))
+  (cond
+    [(not match-result) #f]
+    [else
+     (match-define (list _ direction-mark pattern) match-result)
+     (define direction
+       (match direction-mark
+         ["?" 'backwards]
+         ["/" 'forwards]))
+     (define matched-range (search (Point 0 0 0) lines pattern direction 1 #t))
+     (cond
+       [(not matched-range) #f]
+       [(Point-row (first matched-range))])
+     ]))
+
 (define (range-line->line range-line row lines)
   (match range-line
     [(or "" ".") row]
     ["$" (sub1 (length lines))]
     [(? string->number range-line) (sub1 (string->number range-line))]
-    [_ (error 'missing-range-line-case)]))
+    [_
+     (cond
+       [(range-line->search range-line lines)]
+       [else (error 'missing-range-line-case (~v range-line))])]))
 
 (define (parse-comma-range range row lines)
   (define reg-result (regexp-match #rx"^(.*),(.*)$" range))
@@ -642,11 +661,11 @@
              ['all range-end-p]
              ['first (move-point (make-Motion '$) range-end-p lines)]
              [_ (error 'missing-mode-case)]))
-         (define next-range (search next-search-p lines src-pattern 'forwards 1 #f))
+         (define matched-range (search next-search-p lines src-pattern 'forwards 1 #f))
          (cond
-           [(and next-range (not (Point<? (first next-range) p)) (<= (Point-row (first next-range)) end-line))
-            (set-Buffer-cur! b (first next-range))
-            (set! range-end-p (left-point (second next-range)))]
+           [(and matched-range (not (Point<? (first matched-range) p)) (<= (Point-row (first matched-range)) end-line))
+            (set-Buffer-cur! b (first matched-range))
+            (set! range-end-p (left-point (second matched-range)))]
            [else (set! range-end-p #f)
                  (send mode-switcher enter-mode! sub-normal-mode)])]
         [(or 'a 'A) (define-values (new-lines diffs) (substitude-from-point-to-line src-pattern dst-pattern p end-line lines 'all))

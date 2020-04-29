@@ -21,7 +21,7 @@
 
 (define (substitude-from-point-to-line src dst p end-line lines mode)
   (define-values (row col) (Point-row-col p))
-  (define-values (_ this after) (before-this-after (take lines end-line) row))
+  (define-values (_ this after) (before-this-after (take lines (add1 end-line)) row))
   (define new-this (substitude-line-from-col src dst this col mode))
   (define this-diff-lst
     (cond

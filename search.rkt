@@ -79,7 +79,7 @@
 
 (define (search-backwards p lines pattern inclusive?)
   (match-define (Point row col _) p)
-  (define use-col (if inclusive? col (add1 col)))
+  (define use-col (if inclusive? (add1 col) col))
   (define line (list-ref lines row))
   (define (search-the-line)
     (define rest-str (substring line use-col))
@@ -92,7 +92,7 @@
                 [new-row (in-range (sub1 (length begin-to-point)) -1 -1)])
          (search-string-backwards new-row l pattern)))]
     [(for/or ([l (reverse (drop lines (add1 row)))]
-              [new-row (in-range (sub1 (length lines)) (add1 row) -1)])
+              [new-row (in-range (sub1 (length lines)) row -1)])
        (search-string-backwards new-row l pattern))]
     [else (search-the-line)]
     ))

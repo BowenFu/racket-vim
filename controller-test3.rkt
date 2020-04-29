@@ -72,3 +72,58 @@
                   "xf Achilles son"
                   "xf Peleus, that brought"))
   (check-equal? (Buffer-cur b) (Point 2 0 0)))
+
+
+(let ([ b (new-Buffer sample-lines)])
+  (execute-key-symbols b (list      ':
+                                    '/
+                                    's
+                                    'o
+                                    'n
+                                    '/
+                                    '|,|
+                                    '$
+                                    's
+                                    '/
+                                    'o
+                                    '/
+                                    'x
+                                    '/
+                                    'g
+                                    'c
+                                    '<CR>
+                                    'y
+                                    'y
+                                    'y
+                                    'n))
+  (check-equal? (Buffer-lines b)
+                '("Sing, O goddess, the anger"
+                  "xf Achilles sxn"
+                  "xf Peleus, that brought"))
+  (check-equal? (Buffer-cur b) (Point 2 18 18)))
+
+(let ([ b (new-Buffer sample-lines)])
+  (execute-key-symbols b (list      ':
+                                    '|,|
+                                    '?
+                                    's
+                                    'o
+                                    'n
+                                    '?
+                                    's
+                                    '/
+                                    'o
+                                    '/
+                                    'x
+                                    '/
+                                    'g
+                                    'c
+                                    '<CR>
+                                    'y
+                                    'n
+                                    'a))
+  (check-equal? (Buffer-lines b)
+                '("Sing, O gxddess, the anger"
+                  "of Achilles sxn"
+                  "of Peleus, that brought"))
+  (check-equal? (Buffer-cur b) (Point 1 13 13)))

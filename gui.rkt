@@ -94,12 +94,15 @@
 
 (module+ test
   (require (submod "core.rkt" test))
-  (define b (new-Buffer '("Sing, O goddess, the anger"
+  (define b (new-Buffer #;'("Sing, O goddess, the anger"
+                            "of Achilles son"
+                            "of Peleus, that brought"
+                            ", the anger"
+                            "of Achilles son"
+                            "x")
+                        '("Sing, O goddess, the anger"
                           "of Achilles son"
-                          "of Peleus, that brought"
-                          ", the anger"
-                          "of Achilles son"
-                          "x")))
+                          "of Peleus, that brought")))
   (define controller (new controller% [buffer b]))
   (new-editor-frame controller)
   )
