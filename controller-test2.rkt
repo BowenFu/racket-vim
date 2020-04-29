@@ -273,3 +273,30 @@
                 '("Sing, O goddess, the anger"
                   "ofchilles son"
                   "of Peleus, that brought")))
+
+(let ([ b (new-Buffer sample-lines)])
+  (execute-key-symbols b (list '/
+                               'o
+                               'f
+                               '/
+                               '+
+                               '|2|
+                               '<CR>
+                               'x))
+  (check-equal? (Buffer-lines b)
+                '("Sing, O goddess, the anger"
+                  "of Achilles son"
+                  "f Peleus, that brought")))
+
+(let ([ b (new-Buffer sample-lines)])
+  (execute-key-symbols b (list '?
+                               'b
+                               '?
+                               '-
+                               '|1|
+                               '<CR>
+                               'x))
+  (check-equal? (Buffer-lines b)
+                '("Sing, O goddess, the anger"
+                  "f Achilles son"
+                  "of Peleus, that brought")))

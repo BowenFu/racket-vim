@@ -5,11 +5,28 @@
 (provide search)
 
 (define (search p lines command direction count)
-  (match-define (list _ pattern-str offset-str) (regexp-match #px"^(.*?)(?:/(.*))?$" command))
+  (define command-pattern
+    (match direction
+      ['forwards #px"^(.*?)(?:/(.*))?$"]
+      ['backwards #px"^(.*?)(?:\\?(.*))?$"]
+      [_ (error 'missing-case)]))
+  (match-define (list _ pattern-str offset-str) (regexp-match command-pattern command))
+  (define pattern (pregexp pattern-str))
+  (define range (search-impl p lines pattern direction count))
   (define offset (cond
                    [offset-str (string->number offset-str)]
-                   [else 0])) ; todo use this.
-  (define pattern (pregexp pattern-str))
+                   [else #f])) ; todo use this.
+  (cond
+    [(not (and range offset)) range]
+    [else
+       
+     (define start-row (Point-row (first range)))
+     (define new-row (min (sub1 (length lines)) (+ start-row offset)))
+     (define offsetted-p  (Point new-row 0 0))
+     (cons offsetted-p range)]
+    ))
+  
+(define (search-impl p lines pattern direction count)
   (define search-func
     (match direction
       ['forwards search-forwards]

@@ -90,10 +90,10 @@ Now follows an exhaustive list of every known Vim command that we could find.
 
 ## Pattern searches
 
-| Status                    | Command                            | Description                                            | Note                                                                            |
-| ------------------------- | ---------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| [x] | :1234: `/{pattern}[/[offset]]<CR>` | search forward for the Nth occurrence of {pattern}     | Offset not supported. |
-| [x] | :1234: `?{pattern}[?[offset]]<CR>` | search backward for the Nth occurrence of {pattern}    | As above. |
+| Status | Command                            | Description                                            |
+| --- | ---------------------------------- | ------------------------------------------------------ |
+| [x] | :1234: `/{pattern}[/[offset]]<CR>` | search forward for the Nth occurrence of {pattern}     |
+| [x] | :1234: `?{pattern}[?[offset]]<CR>` | search backward for the Nth occurrence of {pattern}    |
 | [x] | :1234: `/<CR>`                     | repeat last search, in the forward direction           |
 | [x] | :1234: `?<CR>`                     | repeat last search, in the backward direction          | 
 | [x] | :1234: n                           | repeat last search                                     |
