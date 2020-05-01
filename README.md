@@ -3,6 +3,9 @@ editor
 
 Vim style editor written in Racket
 
+## Objective
+As the backend of https://github.com/BowenFu/drracket-vim-tool.
+
 ## Roadmap
 
 These are the big Vim features, put generally in the order in which we plan to implement them.
