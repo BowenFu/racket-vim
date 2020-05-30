@@ -526,7 +526,7 @@
 (: e-point (->* (Point String) (Natural) Point))
 (define (e-point p l [count 1])
   (for/fold
-   ([e-p p])
+   ([e-p : Point p])
    ([_ (in-range count)])
     (define skip-space (right-skip-space-point-from-next e-p l))
     (define pred (Point-char-pred skip-space l))
@@ -544,7 +544,7 @@
 (: E-point (->* (Point String) (Natural) Point))
 (define (E-point p l [count 1])
   (for/fold
-   ([E-p p])
+   ([E-p : Point p])
    ([_ (in-range count)])
     (define skip-space (right-skip-space-point-from-next E-p l))
     (define new-E-p (right-cont-last-if-point (negate char-whitespace?) skip-space l))
@@ -561,7 +561,7 @@
 (: w-point (->* (Point String) (Natural) Point))
 (define (w-point p l [count 1])
   (for/fold
-   ([w-p p])
+   ([w-p : Point p])
    ([_ (in-range count)])
     (define pred (Point-char-pred w-p l))
     (define skip-word (right-skip-until-point (negate pred) w-p l))
@@ -601,7 +601,7 @@
 (: W-point (->* (Point String) (Natural) Point))
 (define (W-point p l [count 1])
   (for/fold
-   ([W-p p])
+   ([W-p : Point p])
    ([_ (in-range count)])
     (define pred (Point-char-pred W-p l))
     (define skip-word (right-skip-until-point char-whitespace? W-p l))
@@ -655,7 +655,7 @@
 (: b-point (->* (Point String) (Natural) Point))
 (define (b-point p l [count 1])
   (for/fold
-   ([b-p p])
+   ([b-p : Point p])
    ([_ (in-range count)])
     (define skip-space (left-skip-space-point b-p l))
     (define pred (Point-char-pred skip-space l))
@@ -678,7 +678,7 @@
 (: B-point (->* (Point String) (Natural) Point))
 (define (B-point p l [count 1])
   (for/fold
-   ([B-p p])
+   ([B-p : Point p])
    ([_ (in-range count)])
     (define skip-space (left-skip-space-point p l))
     (define new-B-p (left-cont-last-if-point (negate char-whitespace?) skip-space l))
@@ -708,7 +708,7 @@
 (: f-point (->* (Char Point String) (Natural) Point))
 (define (f-point k p l [count 1])
   (for/fold
-   ([f-p p])
+   ([f-p : Point p])
    ([_ (in-range count)])
     (define new-f-p (right-find-char-point k f-p l))
     #:break (equal? new-f-p f-p)
@@ -738,7 +738,7 @@
 (: F-point (->* (Char Point String) (Natural) Point))
 (define (F-point k p l [count 1])
   (for/fold
-   ([F-p p])
+   ([F-p : Point p])
    ([_ (in-range count)])
     (define new-F-p (left-find-char-point k F-p l))
     #:break (equal? new-F-p F-p)
